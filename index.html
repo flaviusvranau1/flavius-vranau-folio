@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flavius Vranău — Creative Full-Stack Developer</title>
+  <meta name="description" content="Creative Full-Stack Developer. I build web experiences that move — React, Next.js, Node.js, GSAP, Three.js. Based in Romania, working worldwide." />
+  <meta property="og:title" content="Flavius Vranău — Creative Full-Stack Developer" />
+  <meta property="og:description" content="I build web experiences that move." />
+  <meta property="og:image" content="https://flaviusvranau1.github.io/flavius-vranau-folio/portrait-hero.jpg" />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#0B0A08" />
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+</head>
+<body>
+
+  <!-- Preloader -->
+  <div class="preloader" id="preloader" aria-hidden="true">
+    <div class="preloader__inner">
+      <div class="preloader__monogram">FV</div>
+      <div class="preloader__count"><span id="preload-count">0</span></div>
+      <div class="preloader__bar"><span id="preload-bar"></span></div>
+    </div>
+  </div>
+
+  <!-- Custom cursor -->
+  <div class="cursor" id="cursor" aria-hidden="true"><span class="cursor__label" id="cursor-label"></span></div>
+
+  <!-- Header -->
+  <header class="site-head" id="site-head">
+    <a class="site-head__brand" href="#hero" data-cursor="hover">FV<span class="site-head__brand-dot">.</span></a>
+    <div class="site-head__right">
+      <span class="site-head__status"><i></i><span data-i18n="status">Available for work</span></span>
+      <button class="lang-toggle" id="lang-toggle" data-cursor="hover" aria-label="Switch language">
+        <span class="lang-toggle__opt is-active" data-lang="en">EN</span>
+        <span class="lang-toggle__sep">/</span>
+        <span class="lang-toggle__opt" data-lang="ro">RO</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- 2 · HERO -->
+    <section class="hero" id="hero">
+      <div class="hero__canvas-wrap">
+        <canvas class="hero__canvas" id="hero-canvas"></canvas>
+        <img class="hero__fallback" id="hero-fallback" src="./portrait-hero.jpg" alt="Portrait of Flavius Vranău" />
+        <div class="hero__shade"></div>
+      </div>
+      <div class="hero__light" id="hero-light"></div>
+      <div class="hero__content">
+        <h1 class="hero__title" id="hero-title" aria-label="Flavius Vranău">FLAVIUS&nbsp;VRANĂU</h1>
+        <p class="hero__tagline" id="hero-tagline" data-i18n="tagline">Creative Full-Stack Developer.<br />I build web experiences that move.</p>
+      </div>
+      <div class="hero__hint" id="hero-hint">
+        <span class="hero__hint-line"></span>
+        <span class="hero__hint-text" data-i18n="scroll">Scroll</span>
+      </div>
+    </section>
+
+    <!-- 3 · MANIFESTO -->
+    <section class="manifesto" id="manifesto">
+      <p class="section-label mono" data-i18n="manifestoLabel">01 — Who I am</p>
+      <div class="manifesto__lines" id="manifesto-lines">
+        <div class="mask"><p class="manifesto__line" data-i18n="m1">I turn ideas into things people actually use.</p></div>
+        <div class="mask"><p class="manifesto__line" data-i18n="m2">Clean code. Real motion. <em>Shipped.</em></p></div>
+        <div class="mask"><p class="manifesto__line" data-i18n="m3">Front end to back end — design to deploy.</p></div>
+        <div class="mask"><p class="manifesto__line manifesto__line--accent" data-i18n="m4">The details are the product.</p></div>
+      </div>
+    </section>
+
+    <!-- 4 · WHAT I DO -->
+    <section class="craft" id="craft">
+      <div class="craft__pin" id="craft-pin">
+        <p class="section-label mono" data-i18n="craftLabel">02 — What I do</p>
+        <h2 class="craft__title" data-i18n="craftTitle">CRAFT</h2>
+        <ul class="craft__list">
+          <li class="craft__row" data-row>
+            <span class="craft__num mono">01</span>
+            <span class="craft__name" data-i18n="c1">Front-end</span>
+            <span class="craft__stack mono" data-i18n="c1stack">React · Next.js · TypeScript · Tailwind</span>
+          </li>
+          <li class="craft__row" data-row>
+            <span class="craft__num mono">02</span>
+            <span class="craft__name" data-i18n="c2">Motion</span>
+            <span class="craft__stack mono" data-i18n="c2stack">GSAP · Three.js · Framer Motion · Lenis</span>
+          </li>
+          <li class="craft__row" data-row>
+            <span class="craft__num mono">03</span>
+            <span class="craft__name" data-i18n="c3">Back-end</span>
+            <span class="craft__stack mono" data-i18n="c3stack">Node.js · Ruby on Rails · REST APIs</span>
+          </li>
+          <li class="craft__row" data-row>
+            <span class="craft__num mono">04</span>
+            <span class="craft__name" data-i18n="c4">Data</span>
+            <span class="craft__stack mono" data-i18n="c4stack">MongoDB · PostgreSQL · MySQL</span>
+          </li>
+          <li class="craft__row" data-row>
+            <span class="craft__num mono">05</span>
+            <span class="craft__name" data-i18n="c5">Approach</span>
+            <span class="craft__stack mono" data-i18n="c5stack">Ship fast · AI-assisted · Detail-obsessed</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 5 · SELECTED WORK -->
+    <section class="work" id="work">
+      <div class="work__pin" id="work-pin">
+        <div class="work__head">
+          <p class="section-label mono" data-i18n="workLabel">03 — Selected work</p>
+          <h2 class="work__title" data-i18n="workTitle">WORK</h2>
+        </div>
+        <div class="work__track" id="work-track">
+          <article class="card" data-cursor="view">
+            <div class="card__media">
+              <img class="card__img" data-src="./work/miami.webp" alt="Miami project artwork" />
+            </div>
+            <div class="card__body">
+              <span class="card__index mono">01</span>
+              <h3 class="card__name">MIAMI</h3>
+              <p class="card__line" data-i18n="w1">Cross-platform companion app — one codebase, web to pocket.</p>
+              <div class="card__chips mono"><span>React Native</span><span>iOS</span><span>Android</span><span>Web</span></div>
+            </div>
+          </article>
+          <article class="card" data-cursor="view">
+            <div class="card__media">
+              <img class="card__img" data-src="./work/escalade.webp" alt="Cadillac Escalade project artwork" />
+            </div>
+            <div class="card__body">
+              <span class="card__index mono">02</span>
+              <h3 class="card__name">CADILLAC ESCALADE</h3>
+              <p class="card__line" data-i18n="w2">Luxury chauffeur &amp; fleet booking platform — web + mobile. In progress.</p>
+              <div class="card__chips mono"><span>React</span><span>React Native</span><span>Node.js</span><span>MongoDB</span></div>
+            </div>
+          </article>
+          <article class="card" data-cursor="view">
+            <div class="card__media">
+              <img class="card__img" data-src="./work/freelance.webp" alt="Freelance web artwork" />
+            </div>
+            <div class="card__body">
+              <span class="card__index mono">03</span>
+              <h3 class="card__name" data-i18n="w3name">FREELANCE WEB</h3>
+              <p class="card__line" data-i18n="w3">Cinematic landing pages and presentation sites that sell.</p>
+              <div class="card__chips mono"><span>GSAP</span><span>Three.js</span><span>Next.js</span></div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6a · PORTRAIT MOMENT 2 — light sweep scrub -->
+    <section class="moment" id="moment">
+      <div class="moment__pin" id="moment-pin">
+        <canvas class="moment__canvas" id="moment-canvas"></canvas>
+        <div class="moment__shade"></div>
+        <h2 class="moment__title" id="moment-title" data-i18n="momentTitle">LIGHT DOES THE TALKING</h2>
+        <p class="moment__sub mono" id="moment-sub" data-i18n="momentSub">7 years of public speaking — rooms of 500 to 800 people</p>
+      </div>
+    </section>
+
+    <!-- 6b · DEPTH PORTRAIT — interactive 2.5D -->
+    <section class="depth" id="depth">
+      <p class="section-label mono" data-i18n="depthLabel">04 — In depth</p>
+      <div class="depth__stage" id="depth-stage" data-cursor="move">
+        <canvas class="depth__canvas" id="depth-canvas"></canvas>
+        <img class="depth__fallback" id="depth-fallback" src="./portrait-depth-src.jpg" alt="Flavius Vranău hiking in snowy mountains" />
+      </div>
+      <p class="depth__caption mono" data-i18n="depthCaption">Move the cursor — the portrait answers.</p>
+    </section>
+
+    <!-- 7 · STORY / TIMELINE -->
+    <section class="story" id="story">
+      <p class="section-label mono" data-i18n="storyLabel">05 — The path</p>
+      <div class="story__rail">
+        <span class="story__progress" id="story-progress"></span>
+        <ol class="story__steps">
+          <li class="story__step" data-step>
+            <span class="story__marker"></span>
+            <span class="story__year mono" data-i18n="s1y">2015 — 2019</span>
+            <h3 class="story__step-title" data-i18n="s1t">Foundations</h3>
+            <p class="story__step-text" data-i18n="s1">Computer Science at TU Cluj-Napoca — algorithms, C++, and a real-time lane-detection thesis in OpenCV.</p>
+          </li>
+          <li class="story__step" data-step>
+            <span class="story__marker"></span>
+            <span class="story__year mono" data-i18n="s2y">2018 — 2022</span>
+            <h3 class="story__step-title" data-i18n="s2t">First dev roles</h3>
+            <p class="story__step-text" data-i18n="s2">Full-stack at Takeoff Labs in Cluj (Rails, PostgreSQL), then front-end for FOUND CO in London.</p>
+          </li>
+          <li class="story__step" data-step>
+            <span class="story__marker"></span>
+            <span class="story__year mono" data-i18n="s3y">2024 — 2025</span>
+            <h3 class="story__step-title" data-i18n="s3t">Product work</h3>
+            <p class="story__step-text" data-i18n="s3">Logistics booking platform at Smart Box Digital — React, Node.js, MongoDB. Then Miami and the Escalade fleet platform.</p>
+          </li>
+          <li class="story__step" data-step>
+            <span class="story__marker"></span>
+            <span class="story__year mono" data-i18n="s4y">2025 — NOW</span>
+            <h3 class="story__step-title" data-i18n="s4t">Automation &amp; creative work</h3>
+            <p class="story__step-text" data-i18n="s4">n8n automations and internal tools at Far Foundation — plus cinematic, scroll-driven sites for real clients.</p>
+          </li>
+          <li class="story__step" data-step>
+            <span class="story__marker"></span>
+            <span class="story__year mono" data-i18n="s5y">NEXT</span>
+            <h3 class="story__step-title story__step-title--accent" data-i18n="s5t">Your project</h3>
+            <p class="story__step-text" data-i18n="s5">Remote, worldwide.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 8 · CONTACT -->
+    <section class="contact" id="contact">
+      <div class="contact__portrait">
+        <img src="./portrait-quiet.jpg" alt="" loading="lazy" />
+      </div>
+      <h2 class="contact__title" id="contact-title" data-i18n="contactTitle">GET IN<br />TOUCH</h2>
+      <a class="contact__mail magnetic" id="contact-mail" href="mailto:FlaviusVranauServiciu@gmail.com" data-cursor="hover">
+        <span data-i18n="cta">Let's build something</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m0 0-6-6m6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <div class="contact__links mono">
+        <a href="https://github.com/flaviusvranau1" target="_blank" rel="noopener" class="magnetic" data-cursor="hover">GitHub</a>
+        <a href="https://linkedin.com/in/flavius-vranau" target="_blank" rel="noopener" class="magnetic" data-cursor="hover">LinkedIn</a>
+        <a href="mailto:FlaviusVranauServiciu@gmail.com" class="magnetic" data-cursor="hover">Email</a>
+      </div>
+      <p class="contact__foot mono"><span data-i18n="foot">Based in Romania — working worldwide</span> · © <span id="year"></span> Flavius Vranău</p>
+    </section>
+
+  </main>
+
+  <!-- Sticky CTA -->
+  <a class="cta-sticky" id="cta-sticky" href="#contact" data-cursor="hover">
+    <span class="cta-sticky__dot"></span>
+    <span data-i18n="ctaShort">Let's build something</span>
+  </a>
+
+  <!-- Cinematic grade overlays -->
+  <canvas class="grain" id="grain" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

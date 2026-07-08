@@ -1,0 +1,16 @@
+import { chromium } from 'playwright-core';
+const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const browser = await chromium.launch({ executablePath: CHROME, headless: false, args: ['--window-position=-2600,-2600','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--mute-audio','--no-first-run'] });
+const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await page.goto('http://localhost:5199', { waitUntil: 'domcontentloaded' });
+await page.waitForFunction(`document.getElementById('hero')?.classList.contains('is-live')`, null, { timeout: 60000 });
+await page.waitForTimeout(2500);
+await page.screenshot({ path: 'qa/shots/v2-hero-start.png' });
+await page.evaluate(`window.__lenis.scrollTo(1500, {immediate:true})`);
+await page.waitForTimeout(1500);
+await page.screenshot({ path: 'qa/shots/v2-hero-mid.png' });
+await page.evaluate(`window.__lenis.scrollTo(2950, {immediate:true})`);
+await page.waitForTimeout(1500);
+await page.screenshot({ path: 'qa/shots/v2-hero-end.png' });
+console.log('done');
+await browser.close();

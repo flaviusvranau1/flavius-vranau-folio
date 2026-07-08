@@ -1,0 +1,26 @@
+import { chromium } from 'playwright-core';
+import fs from 'node:fs';
+const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const browser = await chromium.launch({ executablePath: CHROME, headless: false, args: ['--window-position=-2600,-2600','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--mute-audio','--no-first-run'] });
+const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await page.goto('http://localhost:5199', { waitUntil: 'domcontentloaded' });
+await page.waitForFunction(`document.getElementById('hero')?.classList.contains('is-live')`, null, { timeout: 60000 });
+await page.waitForTimeout(1500);
+// scroll gradually so pins/lazy things fire, then position depth stage in view
+await page.evaluate(`window.__lenis.scrollTo(document.body.scrollHeight, {immediate:true})`);
+await page.waitForTimeout(1200);
+await page.evaluate(`(() => { const r = document.getElementById('depth-stage').getBoundingClientRect(); window.__lenis.scrollTo(scrollY + r.top - (innerHeight - r.height)/2, {immediate:true}); })()`);
+await page.waitForTimeout(2500);
+const live = await page.evaluate(`document.getElementById('depth-stage').classList.contains('is-live')`);
+const box = await page.locator('#depth-stage').boundingBox();
+await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.4);
+await page.waitForTimeout(900);
+await page.screenshot({ path: 'qa/shots/v2-depth-a.png' });
+const a = await page.locator('#depth-stage').screenshot();
+await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.6);
+await page.waitForTimeout(900);
+const b = await page.locator('#depth-stage').screenshot();
+fs.writeFileSync('qa/shots/v2-depth-b.png', b);
+let diff = 0; for (let i = 0; i < Math.min(a.length, b.length); i += 97) if (a[i] !== b[i]) diff++;
+console.log({ live, diffSamples: diff });
+await browser.close();
