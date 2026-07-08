@@ -1,0 +1,18 @@
+import { chromium } from 'playwright-core';
+const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const browser = await chromium.launch({ executablePath: CHROME, headless: false, args: ['--window-position=-2600,-2600','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--mute-audio','--no-first-run'] });
+const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+const errors = [], failed = [];
+page.on('pageerror', e => errors.push(String(e)));
+page.on('console', m => m.type() === 'error' && errors.push(m.text()));
+page.on('response', r => r.status() >= 400 && failed.push(`${r.status()} ${r.url()}`));
+await page.goto('https://flaviusvranau1.github.io/flavius-vranau-folio/', { waitUntil: 'domcontentloaded' });
+await page.waitForFunction(`document.getElementById('hero')?.classList.contains('is-live')`, null, { timeout: 90000 });
+await page.waitForTimeout(2500);
+await page.screenshot({ path: 'qa/shots/live-hero.png' });
+await page.evaluate(`window.__lenis.scrollTo(2000, {immediate:true})`);
+await page.waitForTimeout(1500);
+const frame = await page.evaluate(`Math.round(window.__heroFrame())`);
+await page.screenshot({ path: 'qa/shots/live-scrub.png' });
+console.log({ heroLive: true, scrubFrameAt2000: frame, errors, failed: failed.slice(0,5) });
+await browser.close();
