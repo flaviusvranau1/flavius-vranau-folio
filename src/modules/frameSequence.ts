@@ -36,8 +36,17 @@ export class FrameSequence {
   }
 
   resize(): void {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
     const { clientWidth, clientHeight } = this.canvas;
+    // Never allocate more backing pixels than the source frames can resolve:
+    // painting a DPR-2 buffer from 1600px frames costs 2-4x the fill for zero
+    // visible sharpness. min(iw/cssW, ih/cssH) is the DPR at which the visible
+    // cover-fit region maps ~1:1 to source pixels.
+    const first = this.images.find((im) => im && im.naturalWidth > 0);
+    if (first && clientWidth > 0 && clientHeight > 0) {
+      const useful = Math.min(first.naturalWidth / clientWidth, first.naturalHeight / clientHeight);
+      dpr = Math.max(1, Math.min(dpr, useful));
+    }
     this.canvas.width = Math.round(clientWidth * dpr);
     this.canvas.height = Math.round(clientHeight * dpr);
     if (this.currentIndex >= 0) this.draw(this.currentIndex);

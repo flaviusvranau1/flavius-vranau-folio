@@ -291,6 +291,7 @@ export function initPhone3d(): void {
     let lastPX = 0;
     let lastPY = 0;
     window.addEventListener('pointermove', (e) => {
+      if (!visible) return; // skip the layout read while the section is off screen
       const r = canvas.getBoundingClientRect();
       if (e.clientY < r.top || e.clientY > r.bottom) return;
       const nx = ((e.clientX - r.left) / r.width) * 2 - 1;
@@ -303,8 +304,16 @@ export function initPhone3d(): void {
       pointerActive = true;
     });
 
+    // Render only while the section is meaningfully on screen (>=15%), so two
+    // composers never burn GPU simultaneously during section handoffs.
     let visible = true;
-    new IntersectionObserver((en) => (visible = en[0].isIntersecting)).observe(section);
+    new IntersectionObserver(
+      (en) => {
+        const e = en[en.length - 1];
+        visible = e.isIntersecting && e.intersectionRatio >= 0.14;
+      },
+      { threshold: [0, 0.15, 0.3] }
+    ).observe(section);
 
     const local = new THREE.Vector3();
     const prevLocal = new THREE.Vector2();

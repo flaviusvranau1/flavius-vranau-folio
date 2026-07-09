@@ -66,7 +66,9 @@ export function initDepthPortrait(): void {
       loadImage('./portrait-depth-map.jpg'),
     ]);
 
-    const renderer = new Renderer({ canvas, dpr: Math.min(window.devicePixelRatio || 1, 2), alpha: false });
+    // DPR capped at 1.5 — same budget as the three.js stages (was 2; a photo
+    // parallax gains nothing visible above 1.5 and costs 78% more pixels).
+    const renderer = new Renderer({ canvas, dpr: Math.min(window.devicePixelRatio || 1, 1.5), alpha: false });
     const gl = renderer.gl;
 
     const texImg = new Texture(gl, { image: img, generateMipmaps: false });
@@ -112,13 +114,15 @@ export function initDepthPortrait(): void {
     let inView = true;
     new IntersectionObserver((en) => (inView = en[0].isIntersecting)).observe(stage);
 
+    const flowValue = program.uniforms.uFlow.value as [number, number];
     gsap.ticker.add((time) => {
       if (!inView) return;
       const idleX = Math.sin(time * 0.5) * 0.007;
       const idleY = Math.cos(time * 0.34) * 0.006;
       flow.x += (target.x + idleX - flow.x) * 0.05;
       flow.y += (target.y + idleY - flow.y) * 0.05;
-      program.uniforms.uFlow.value = [flow.x, flow.y];
+      flowValue[0] = flow.x; // mutate in place — no per-frame allocation
+      flowValue[1] = flow.y;
       renderer.render({ scene: mesh });
     });
 

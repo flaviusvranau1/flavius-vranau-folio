@@ -1,0 +1,23 @@
+import { chromium } from 'playwright-core';
+const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const browser = await chromium.launch({ executablePath: CHROME, headless: false, args: ['--window-position=-2600,-2600','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--mute-audio','--no-first-run'] });
+const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+const errors = [], failed = [];
+page.on('pageerror', e => errors.push(String(e)));
+page.on('console', m => m.type() === 'error' && errors.push(m.text()));
+page.on('response', r => r.status() >= 400 && failed.push(`${r.status()} ${r.url().slice(-60)}`));
+await page.goto('https://flaviusvranau1.github.io/flavius-vranau-folio/', { waitUntil: 'domcontentloaded' });
+await page.waitForFunction(`!document.getElementById('preloader')`, null, { timeout: 60000 });
+await page.waitForTimeout(3500);
+for (let i = 0; i <= 10; i++) { await page.mouse.move(300 + i * 90, 440); await page.waitForTimeout(45); }
+const name = await page.evaluate(`window.__nameInfo()`);
+await page.screenshot({ path: 'qa/shots/live-v6-name.png' });
+await page.evaluate(`window.__lenis.scrollTo(document.getElementById('phone').offsetTop, { immediate: true })`);
+await page.waitForTimeout(3000);
+await page.screenshot({ path: 'qa/shots/live-v6-phone.png' });
+await page.evaluate(`window.__lenis.scrollTo(document.getElementById('desk').offsetTop, { immediate: true })`);
+await page.waitForFunction(`window.__deskInfo !== undefined`, null, { timeout: 60000 });
+await page.waitForTimeout(3000);
+await page.screenshot({ path: 'qa/shots/live-v6-desk.png' });
+console.log({ nameParticles: name, errors: errors.slice(0,3), failed: failed.slice(0,3) });
+await browser.close();

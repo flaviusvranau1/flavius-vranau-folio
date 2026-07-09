@@ -89,9 +89,17 @@ export function initHeroScrub(dir: string, frameCount: number, pinned: boolean, 
         target.x = ((e.clientX - r.left) / r.width) * 100;
         target.y = ((e.clientY - r.top) / r.height) * 100;
       });
+      // Only write the CSS vars while the hero is on screen AND the light is
+      // still moving — style writes every frame for the whole page otherwise.
+      let heroVis = true;
+      new IntersectionObserver((en) => (heroVis = en[en.length - 1].isIntersecting)).observe(hero);
       gsap.ticker.add(() => {
-        q.x += (target.x - q.x) * 0.06;
-        q.y += (target.y - q.y) * 0.06;
+        if (!heroVis) return;
+        const dx = target.x - q.x;
+        const dy = target.y - q.y;
+        if (Math.abs(dx) < 0.002 && Math.abs(dy) < 0.002) return; // converged (units: % of hero)
+        q.x += dx * 0.06;
+        q.y += dy * 0.06;
         light.style.setProperty('--lx', `${q.x}%`);
         light.style.setProperty('--ly', `${q.y}%`);
       });

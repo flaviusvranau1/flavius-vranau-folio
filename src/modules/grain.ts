@@ -1,52 +1,41 @@
-import gsap from 'gsap';
-
-/** Animated film grain: pre-rendered noise tiles cycled at ~10fps. */
+/** Animated film grain: noise is painted ONCE (half resolution, oversized by
+ *  the animation travel), then cycled at ~10fps by a compositor-only steps()
+ *  transform animation (.grain--animated in main.css). Replaces the old
+ *  10fps fullscreen createPattern repaint — zero per-frame JS/paint work. */
 export function initGrain(): void {
   const canvas = document.getElementById('grain') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d')!;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const TILE = 256;
-  const tiles: HTMLCanvasElement[] = [];
-  for (let t = 0; t < 4; t++) {
-    const tile = document.createElement('canvas');
-    tile.width = TILE;
-    tile.height = TILE;
-    const tctx = tile.getContext('2d')!;
-    const data = tctx.createImageData(TILE, TILE);
-    for (let i = 0; i < data.data.length; i += 4) {
-      const v = Math.random() * 255;
-      data.data[i] = v;
-      data.data[i + 1] = v;
-      data.data[i + 2] = v;
-      data.data[i + 3] = 255;
-    }
-    tctx.putImageData(data, 0, 0);
-    tiles.push(tile);
+  // One 512px noise tile — white noise tiles seamlessly for all practical purposes.
+  const TILE = 512;
+  const tile = document.createElement('canvas');
+  tile.width = tile.height = TILE;
+  const tctx = tile.getContext('2d')!;
+  const data = tctx.createImageData(TILE, TILE);
+  for (let i = 0; i < data.data.length; i += 4) {
+    const v = Math.random() * 255;
+    data.data[i] = v;
+    data.data[i + 1] = v;
+    data.data[i + 2] = v;
+    data.data[i + 3] = 255;
   }
+  tctx.putImageData(data, 0, 0);
 
-  let frame = 0;
+  // Buffer at half resolution (as before). The animated canvas is 512 CSS px
+  // (= 256 buffer px) larger than the viewport so the steps() translation
+  // never exposes an edge.
+  const OVERDRAW = reduced ? 0 : 256;
   const resize = () => {
-    canvas.width = Math.ceil(innerWidth / 2);
-    canvas.height = Math.ceil(innerHeight / 2);
-    paint();
-  };
-  const paint = () => {
-    const pattern = ctx.createPattern(tiles[frame % tiles.length], 'repeat')!;
+    canvas.width = Math.ceil(innerWidth / 2) + OVERDRAW;
+    canvas.height = Math.ceil(innerHeight / 2) + OVERDRAW;
+    const pattern = ctx.createPattern(tile, 'repeat')!;
     ctx.fillStyle = pattern;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   };
   window.addEventListener('resize', resize);
   resize();
 
-  if (reduced) return;
-
-  // Ride the shared gsap.ticker (one rAF loop app-wide; rAF pauses when the tab is hidden)
-  let last = 0;
-  gsap.ticker.add((time) => {
-    if (time - last < 0.1) return; // ~10fps is enough for grain
-    last = time;
-    frame++;
-    paint();
-  });
+  if (reduced) return; // static grain, exactly as before
+  canvas.classList.add('grain--animated');
 }

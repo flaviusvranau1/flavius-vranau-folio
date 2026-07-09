@@ -19,8 +19,12 @@ export function initCursor(): void {
   });
 
   gsap.ticker.add(() => {
-    pos.x += (target.x - pos.x) * 0.18;
-    pos.y += (target.y - pos.y) * 0.18;
+    const dx = target.x - pos.x;
+    const dy = target.y - pos.y;
+    // converged: skip the offsetWidth layout read + style write until the mouse moves again
+    if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) return;
+    pos.x += dx * 0.18;
+    pos.y += dy * 0.18;
     cursor.style.transform = `translate(${pos.x - cursor.offsetWidth / 2}px, ${pos.y - cursor.offsetHeight / 2}px)`;
   });
 

@@ -145,6 +145,8 @@ export function initNameParticles(): Promise<void> {
     let pointerSpeed = 0;
     let lastPX = 0;
     let lastPY = 0;
+    // Handler stays allocation- and layout-free; the NDC mapping happens once
+    // per rendered frame in the ticker (not per pointer event).
     window.addEventListener('pointermove', (e) => {
       if (pointerSeen) {
         pointerSpeed = Math.min(pointerSpeed + Math.hypot(e.clientX - lastPX, e.clientY - lastPY) * 0.02, 3);
@@ -152,12 +154,18 @@ export function initNameParticles(): Promise<void> {
       lastPX = e.clientX;
       lastPY = e.clientY;
       pointerSeen = true;
-      const r = canvas.getBoundingClientRect();
-      mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     });
 
+    // Render only while the section is meaningfully on screen (>=15%), so two
+    // composers never burn GPU simultaneously during section handoffs.
     let visible = true;
-    new IntersectionObserver((en) => (visible = en[0].isIntersecting)).observe(section);
+    new IntersectionObserver(
+      (en) => {
+        const e = en[en.length - 1];
+        visible = e.isIntersecting && e.intersectionRatio >= 0.14;
+      },
+      { threshold: [0, 0.15, 0.3] }
+    ).observe(section);
 
     let last = performance.now() / 1000;
     let maxOffNow = 0;
@@ -173,6 +181,8 @@ export function initNameParticles(): Promise<void> {
 
       let hitOk = false;
       if (pointerSeen) {
+        const r = canvas.getBoundingClientRect();
+        mouse.set(((lastPX - r.left) / r.width) * 2 - 1, -((lastPY - r.top) / r.height) * 2 + 1);
         raycaster.setFromCamera(mouse, camera);
         hitOk = raycaster.ray.intersectPlane(plane, hit) !== null;
       }

@@ -693,6 +693,25 @@ body.has-cursor .cursor { display: flex; }
   opacity: 0.05;
   mix-blend-mode: overlay;
 }
+/* Painted once, oversized by the animation travel (512px); a compositor-only
+   steps() transform cycles the noise at ~10fps — no repaints (see grain.ts). */
+.grain--animated {
+  width: calc(100% + 512px);
+  height: calc(100% + 512px);
+  animation: grain-shift 0.8s steps(1, end) infinite;
+  will-change: transform;
+}
+@keyframes grain-shift {
+  0%    { transform: translate3d(0, 0, 0); }
+  12.5% { transform: translate3d(-160px, -288px, 0); }
+  25%   { transform: translate3d(-352px, -64px, 0); }
+  37.5% { transform: translate3d(-64px, -448px, 0); }
+  50%   { transform: translate3d(-480px, -192px, 0); }
+  62.5% { transform: translate3d(-224px, -512px, 0); }
+  75%   { transform: translate3d(-416px, -320px, 0); }
+  87.5% { transform: translate3d(-96px, -96px, 0); }
+  100%  { transform: translate3d(0, 0, 0); }
+}
 .vignette {
   position: fixed;
   inset: 0;
