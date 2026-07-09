@@ -1,5 +1,6 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { makePostStack, makeFpsGuard } from './post';
 
@@ -119,11 +120,36 @@ export function initIgloo3d(): void {
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(buildEnvScene(), 0.04).texture;
     scene.environmentIntensity = 0.4;
+    // the real winter sky (Poly Haven horn-koppe_snow) swaps in when it arrives
+    new RGBELoader()
+      .loadAsync('./textures/winter_1k.hdr')
+      .then((hdr) => {
+        scene.environment = pmrem.fromEquirectangular(hdr).texture;
+        scene.environmentIntensity = 0.5;
+        hdr.dispose();
+      })
+      .catch(() => undefined);
 
-    // cool hemisphere + one directional — the vertex-ish shading comes free. NO shadow maps.
-    const hemi = new THREE.HemisphereLight(0xe9eff7, 0x767d88, 0.75);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.95);
-    dir.position.set(-4, 6, 3);
+    // low winter sun with REAL soft shadows — the scene is 4 draw calls, the
+    // shadow pass is nearly free, and brick-on-brick occlusion sells the realism
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const hemi = new THREE.HemisphereLight(0xe9eff7, 0x767d88, 0.5);
+    const dir = new THREE.DirectionalLight(0xfff2e2, 1.35);
+    dir.position.set(-5, 4.5, 4);
+    dir.castShadow = true;
+    dir.shadow.mapSize.set(1024, 1024);
+    dir.shadow.bias = -0.0015;
+    dir.shadow.normalBias = 0.025;
+    dir.shadow.radius = 5;
+    const sc = dir.shadow.camera;
+    sc.left = -3.6;
+    sc.right = 3.6;
+    sc.top = 3.6;
+    sc.bottom = -1;
+    sc.near = 1;
+    sc.far = 16;
+    sc.updateProjectionMatrix();
     scene.add(hemi, dir);
 
     // ---------- brick layout ----------
@@ -252,14 +278,85 @@ export function initIgloo3d(): void {
       baseCol[i * 3 + 2] = cBase.b * j;
     }
 
-    const geo = new RoundedBoxGeometry(1, 1, 1, 2, 0.09);
-    const brickMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0 });
-    const mesh = new THREE.InstancedMesh(geo, brickMat, n);
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(baseCol), 3);
-    mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
-    mesh.frustumCulled = false;
-    scene.add(mesh);
+    // photographic packed-snow surface (Poly Haven snow_02 @1k) — loads async, swaps in
+    const texLoader = new THREE.TextureLoader();
+    const snowDiff = texLoader.load('./textures/snow_diff.jpg');
+    snowDiff.colorSpace = THREE.SRGBColorSpace;
+    const snowNor = texLoader.load('./textures/snow_nor.jpg');
+    const snowRough = texLoader.load('./textures/snow_rough.jpg');
+    for (const tx of [snowDiff, snowNor, snowRough]) tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+
+    // snow caps: faces pointing up catch fresh powder (view-space up passed per frame)
+    const upView = { value: new THREE.Vector3(0, 1, 0) };
+    const brickMat = new THREE.MeshStandardMaterial({
+      color: 0xe9edf2,
+      map: snowDiff,
+      normalMap: snowNor,
+      roughnessMap: snowRough,
+      roughness: 1,
+      metalness: 0,
+      normalScale: new THREE.Vector2(0.85, 0.85),
+    });
+    brickMat.onBeforeCompile = (sh) => {
+      sh.uniforms.uUpView = upView;
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uUpView;')
+        .replace(
+          '#include <normal_fragment_maps>',
+          `#include <normal_fragment_maps>
+          float snowCap = smoothstep(0.3, 0.72, dot(normal, uUpView));
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.97, 0.985, 1.0), snowCap * 0.5);
+          roughnessFactor = mix(roughnessFactor, 0.55, snowCap * 0.45);`
+        );
+    };
+
+    // three hand-cut geometry variants — neighbouring bricks never share dents
+    const variants: THREE.BufferGeometry[] = [];
+    for (let v = 0; v < 3; v++) {
+      const g = new RoundedBoxGeometry(1, 1, 1, 3, 0.1);
+      const pos = g.attributes.position as THREE.BufferAttribute;
+      const sv = 13.7 * (v + 1);
+      for (let k = 0; k < pos.count; k++) {
+        const x = pos.getX(k);
+        const y = pos.getY(k);
+        const z = pos.getZ(k);
+        const w = Math.sin(x * 6.4 + sv) * Math.sin(y * 5.1 + sv * 1.7) * Math.sin(z * 7.3 + sv * 2.3);
+        const q = 1 + w * 0.055;
+        pos.setXYZ(k, x * q, y * q, z * q);
+      }
+      g.computeVertexNormals();
+      variants.push(g);
+    }
+    const meshIdxOf = new Uint8Array(n);
+    const instIdxOf = new Uint16Array(n);
+    const perMeshCount = [0, 0, 0];
+    for (let i = 0; i < n; i++) {
+      const v = i % 3;
+      meshIdxOf[i] = v;
+      instIdxOf[i] = perMeshCount[v]++;
+    }
+    const meshes: THREE.InstancedMesh[] = [];
+    const colArrs: Float32Array[] = [];
+    for (let v = 0; v < 3; v++) {
+      const im = new THREE.InstancedMesh(variants[v], brickMat, perMeshCount[v]);
+      im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      const ca = new Float32Array(perMeshCount[v] * 3);
+      im.instanceColor = new THREE.InstancedBufferAttribute(ca, 3);
+      im.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      im.frustumCulled = false;
+      im.castShadow = true;
+      im.receiveShadow = true;
+      scene.add(im);
+      meshes.push(im);
+      colArrs.push(ca);
+    }
+    for (let i = 0; i < n; i++) {
+      const c3 = instIdxOf[i] * 3;
+      const ca = colArrs[meshIdxOf[i]];
+      ca[c3] = baseCol[i * 3];
+      ca[c3 + 1] = baseCol[i * 3 + 1];
+      ca[c3 + 2] = baseCol[i * 3 + 2];
+    }
 
     // emissive inner shell — the light inside, visible only through the seams
     const shellBase = new THREE.Color(0xcfe0f5).multiplyScalar(1.7);
@@ -268,12 +365,28 @@ export function initIgloo3d(): void {
     shell.position.y = -0.08; // sunken — no light sliver under the base course
     scene.add(shell);
 
-    // ground — a soft slate disc, NO real shadows
+    // ground — real snow, catching the sun's shadows; fog dissolves it into the sky
+    const gDiff = snowDiff.clone();
+    const gNor = snowNor.clone();
+    const gRough = snowRough.clone();
+    for (const tx of [gDiff, gNor, gRough]) {
+      tx.repeat.set(18, 18);
+      tx.needsUpdate = true;
+    }
     const ground = new THREE.Mesh(
       new THREE.CircleGeometry(60, 48),
-      new THREE.MeshStandardMaterial({ color: 0x757c87, roughness: 1, metalness: 0 })
+      new THREE.MeshStandardMaterial({
+        color: 0xbfc6cf, // lift the albedo — fresh snowfield, not thawed dirt
+        map: gDiff,
+        normalMap: gNor,
+        roughnessMap: gRough,
+        roughness: 1,
+        metalness: 0,
+        normalScale: new THREE.Vector2(0.6, 0.6),
+      })
     );
     ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
     scene.add(ground);
 
     // fake contact shadow under the dome
@@ -281,8 +394,8 @@ export function initIgloo3d(): void {
       new THREE.PlaneGeometry(6.8, 6.8),
       new THREE.MeshBasicMaterial({
         map: radialTexture([
-          [0, 'rgba(22,27,36,0.55)'],
-          [0.62, 'rgba(22,27,36,0.34)'],
+          [0, 'rgba(22,27,36,0.34)'],
+          [0.62, 'rgba(22,27,36,0.2)'],
           [1, 'rgba(22,27,36,0)'],
         ]),
         transparent: true,
@@ -353,6 +466,50 @@ export function initIgloo3d(): void {
     snow.frustumCulled = false;
     scene.add(snow);
 
+    // diamond dust — tiny glints twinkling on the snow and the dome (bloom makes them jewels)
+    const SPARK = 420;
+    const sparkPos = new Float32Array(SPARK * 3);
+    const sparkCol = new Float32Array(SPARK * 3);
+    const sparkPhase = new Float32Array(SPARK * 2); // phase, rate
+    for (let i = 0; i < SPARK; i++) {
+      if (i % 3 === 0) {
+        // on the dome surface
+        const az = rnd(0, Math.PI * 2);
+        const lat = rnd(0.12, 1.35);
+        const r = DOME_R + 0.02;
+        sparkPos[i * 3] = Math.cos(az) * Math.cos(lat) * r;
+        sparkPos[i * 3 + 1] = Math.sin(lat) * r * 0.98;
+        sparkPos[i * 3 + 2] = Math.sin(az) * Math.cos(lat) * r;
+      } else {
+        // scattered on the snow field
+        const a = rnd(0, Math.PI * 2);
+        const rr = 2.3 + Math.sqrt(Math.random()) * 6.5;
+        sparkPos[i * 3] = Math.cos(a) * rr;
+        sparkPos[i * 3 + 1] = 0.015;
+        sparkPos[i * 3 + 2] = Math.sin(a) * rr;
+      }
+      sparkPhase[i * 2] = rnd(0, Math.PI * 2);
+      sparkPhase[i * 2 + 1] = rnd(0.5, 2.2);
+    }
+    const sparkGeo = new THREE.BufferGeometry();
+    sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+    const sparkColAttr = new THREE.BufferAttribute(sparkCol, 3).setUsage(THREE.DynamicDrawUsage);
+    sparkGeo.setAttribute('color', sparkColAttr);
+    const sparks = new THREE.Points(
+      sparkGeo,
+      new THREE.PointsMaterial({
+        size: 0.03,
+        map: dotTexture,
+        vertexColors: true,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+      })
+    );
+    sparks.frustumCulled = false;
+    scene.add(sparks);
+
     // ---------- camera ----------
     const camBase = new THREE.Vector3(0.1, 2.9, 7.9); // elevated three-quarter, looking slightly down
     const lookAt = new THREE.Vector3(0, 0.6, 0);
@@ -418,7 +575,7 @@ export function initIgloo3d(): void {
     const _ax = new THREE.Vector3();
     const _s = new THREE.Vector3();
     const _m = new THREE.Matrix4();
-    const colArr = mesh.instanceColor.array as Float32Array;
+    const _upq = new THREE.Quaternion();
 
     let introStart = -1; // set on the first VISIBLE frame — assembly plays on entry (§3)
     let nextShiver = Infinity;
@@ -569,16 +726,31 @@ export function initIgloo3d(): void {
         }
         _s.set(scales[i3], scales[i3 + 1], scales[i3 + 2]);
         _m.compose(_p, _q, _s);
-        mesh.setMatrixAt(i, _m);
+        meshes[meshIdxOf[i]].setMatrixAt(instIdxOf[i], _m);
 
         // more interior light escapes as the brick lifts
         const lr = Math.min(1, Math.max(0, off[i] / cap[i]));
-        colArr[i3] = baseCol[i3] + (cLift.r - baseCol[i3]) * lr;
-        colArr[i3 + 1] = baseCol[i3 + 1] + (cLift.g - baseCol[i3 + 1]) * lr;
-        colArr[i3 + 2] = baseCol[i3 + 2] + (cLift.b - baseCol[i3 + 2]) * lr;
+        const ca = colArrs[meshIdxOf[i]];
+        const c3 = instIdxOf[i] * 3;
+        ca[c3] = baseCol[i3] + (cLift.r - baseCol[i3]) * lr;
+        ca[c3 + 1] = baseCol[i3 + 1] + (cLift.g - baseCol[i3 + 1]) * lr;
+        ca[c3 + 2] = baseCol[i3 + 2] + (cLift.b - baseCol[i3 + 2]) * lr;
       }
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.instanceColor!.needsUpdate = true;
+      for (const im of meshes) {
+        im.instanceMatrix.needsUpdate = true;
+        im.instanceColor!.needsUpdate = true;
+      }
+
+      // snow caps follow the camera's real up; diamond dust twinkles
+      upView.value.set(0, 1, 0).applyQuaternion(_upq.copy(camera.quaternion).invert());
+      for (let i = 0; i < SPARK; i++) {
+        const tw = Math.max(0, Math.sin(t * sparkPhase[i * 2 + 1] + sparkPhase[i * 2]));
+        const b = 0.08 + Math.pow(tw, 14) * 2.2;
+        sparkCol[i * 3] = b;
+        sparkCol[i * 3 + 1] = b;
+        sparkCol[i * 3 + 2] = b * 1.06;
+      }
+      sparkColAttr.needsUpdate = true;
 
       // snow drifts down, wraps around
       for (let i = 0; i < SNOW; i++) {
