@@ -11,11 +11,20 @@ import { makePostStack, makeFpsGuard } from './post';
 
 const DOME_R = 2.0;
 const THICK = 0.3; // brick radial thickness
-const K = 55; // spring stiffness (§2 verbatim)
-const DAMP = 7.5; // velocity damping (§2 verbatim)
-const PUSH = 45; // base push along the dome normal (§2 verbatim)
-const R_INT = 1.36; // influence radius ≈ 2.2 × brick width
-const TILT = 0.6; // hatch tilt (rad) per unit of lift
+const K = 55; // intro-assembly spring (§2 verbatim — used until a brick first seats)
+const DAMP = 7.5; // intro-assembly damping
+/* The rise itself is NOT force-push (that reads as pistons hitting a ceiling).
+   igloo.inc's motion is a soft gaussian BUMP that travels under the cursor:
+   every brick springs toward a target height on the bump, with an asymmetric
+   spring — firm rise (~0.25s), softer under-damped release (~0.7s) that dips
+   a hair below seated and re-settles. Organic, never clamped. */
+const LIFT_MAX = 0.24; // bump peak ≈ 0.8 × brick thickness at rest speed
+const SIGMA = 0.78; // gaussian half-width of the bump — soft flanks, no edge
+const K_UP = 420; // rise: firm — ~90% height within ~0.25s
+const C_UP = 36;
+const K_DN = 25; // release: the SLOW half — elastic drift down, settle ~0.9s
+const C_DN = 8; // ζ≈0.8: one gentle dip past seated, then re-settle
+const TILT_MAX = 0.24; // bricks lean AWAY from the cursor — petals parting
 const DOOR_AZ = -0.62; // entrance azimuth — camera-left
 const FOG = 0x989ea7;
 const SNOW = 300;
@@ -457,41 +466,93 @@ export function initIgloo3d(): void {
         raycaster.setFromCamera(ndc, camera);
         hasHit = raycaster.ray.intersectSphere(proxySphere, hit) !== null;
       }
-      const push = PUSH * (1 + Math.min(pointerSpeed, 2.5));
-      const damp = Math.max(0, 1 - DAMP * dt);
-      const rotDamp = Math.max(0, 1 - 9 * dt);
+      // a fast sweep raises the bump a little higher — never harder, just taller
+      const liftBoost = LIFT_MAX * (1 + Math.min(pointerSpeed, 1.5) * 0.25);
+      const invSigma2 = 1 / (SIGMA * SIGMA);
+      const dampIntro = Math.max(0, 1 - DAMP * dt);
+      const dampUp = Math.max(0, 1 - C_UP * dt);
+      const dampDn = Math.max(0, 1 - C_DN * dt);
+      const rotDamp = Math.max(0, 1 - 8 * dt);
 
       maxLiftNow = 0;
       hoveredNow = 0;
       for (let i = 0; i < n; i++) {
         const i3 = i * 3;
         if (t - introStart >= release[i]) {
-          if (hasHit) {
+          // the traveling bump: gaussian height field centred on the (inertial) hit
+          let g = 0;
+          let awayX = 0;
+          let awayY = 0;
+          let awayZ = 0;
+          if (hasHit && settled[i]) {
             const dx = base[i3] - hit.x;
             const dy = base[i3 + 1] - hit.y;
             const dz = base[i3 + 2] - hit.z;
             const d2 = dx * dx + dy * dy + dz * dz;
-            if (d2 < R_INT * R_INT) {
-              const q = 1 - Math.sqrt(d2) / R_INT;
-              vel[i] += push * q * q * seed[i] * dt; // radially OUTWARD along the dome normal
+            g = Math.exp(-d2 * invSigma2);
+            if (g > 0.02) {
+              awayX = dx;
+              awayY = dy;
+              awayZ = dz;
+            } else g = 0;
+          }
+
+          if (!settled[i]) {
+            // intro assembly keeps the §2 spring — scattered bricks swirl home
+            vel[i] += -K * off[i] * dt;
+            vel[i] *= dampIntro;
+            off[i] += vel[i] * dt;
+            if (Math.abs(off[i]) < cap[i]) settled[i] = 1;
+          } else {
+            const target = g * liftBoost * seed[i];
+            // asymmetric spring: firm ONLY while actively raised by the cursor;
+            // everything on the way down (incl. the dip recovery) stays soft
+            const rising = g > 0.02 && target > off[i];
+            vel[i] += (target - off[i]) * (rising ? K_UP : K_DN) * dt;
+            vel[i] *= rising ? dampUp : dampDn;
+            off[i] += vel[i] * dt;
+            // soft floor: a released brick may dip a hair below seated, then re-settle
+            if (off[i] < -0.12 * THICK) {
+              off[i] = -0.12 * THICK;
+              vel[i] *= -0.35;
             }
           }
-          vel[i] += -K * off[i] * dt;
-          vel[i] *= damp;
-          off[i] += vel[i] * dt;
-          if (!settled[i] && Math.abs(off[i]) < cap[i]) settled[i] = 1; // cap raised during intro
-          if (settled[i]) {
-            if (off[i] > cap[i]) {
-              off[i] = cap[i];
-              if (vel[i] > 0) vel[i] = 0;
-            } else if (off[i] < -0.3 * cap[i]) {
-              off[i] = -0.3 * cap[i];
-              if (vel[i] < 0) vel[i] = 0;
+
+          // tilt: lean AWAY from the cursor, strongest on the bump's flanks
+          // (the brick right under the cursor rises flat — petals part around it)
+          let tTarget = 0;
+          if (g > 0) {
+            // project "away" onto the tangent plane and take the rotation axis
+            const nx = nrm[i3];
+            const ny = nrm[i3 + 1];
+            const nz = nrm[i3 + 2];
+            const dot = awayX * nx + awayY * ny + awayZ * nz;
+            let tx = awayX - nx * dot;
+            let ty = awayY - ny * dot;
+            let tz = awayZ - nz * dot;
+            const tl = Math.hypot(tx, ty, tz);
+            if (tl > 0.001) {
+              tx /= tl;
+              ty /= tl;
+              tz /= tl;
+              // axis = n × away — smoothed so the lean flows as the cursor orbits
+              const axT = ny * tz - nz * ty;
+              const ayT = nz * tx - nx * tz;
+              const azT = nx * ty - ny * tx;
+              const s = Math.min(1, 10 * dt);
+              tiltAx[i3] += (axT - tiltAx[i3]) * s;
+              tiltAx[i3 + 1] += (ayT - tiltAx[i3 + 1]) * s;
+              tiltAx[i3 + 2] += (azT - tiltAx[i3 + 2]) * s;
+              const al = Math.hypot(tiltAx[i3], tiltAx[i3 + 1], tiltAx[i3 + 2]);
+              if (al > 0.001) {
+                tiltAx[i3] /= al;
+                tiltAx[i3 + 1] /= al;
+                tiltAx[i3 + 2] /= al;
+              }
+              tTarget = TILT_MAX * 4 * g * (1 - g) * seed[i]; // peaks mid-flank
             }
           }
-          // the hatch tilt springs after the lift
-          const rTarget = Math.max(0, Math.min(off[i], cap[i])) * TILT;
-          rotVel[i] += (rTarget - rot[i]) * 90 * dt;
+          rotVel[i] += (tTarget - rot[i]) * 70 * dt;
           rotVel[i] *= rotDamp;
           rot[i] += rotVel[i] * dt;
         }
