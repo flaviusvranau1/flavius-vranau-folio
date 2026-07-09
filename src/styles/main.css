@@ -423,6 +423,7 @@ body.has-cursor .cursor { display: flex; }
   will-change: transform;
 }
 .card {
+  position: relative;
   width: clamp(300px, 44vw, 640px);
   flex-shrink: 0;
 }
