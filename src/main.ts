@@ -91,7 +91,7 @@ async function boot(): Promise<void> {
   );
 
   initPhone3d();
-  initIgloo3d();
+  initIgloo3d(); // registers itself with the stage coordinator (off/plain/full)
   initHeroScrub('./frames', HERO_FRAMES_DESKTOP, true, throttle);
   initMomentSweep(true, './sweep', SWEEP_FRAMES_DESKTOP);
   initDepthPortrait();

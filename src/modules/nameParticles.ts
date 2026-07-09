@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
-import { makePostStack, makeFpsGuard } from './post';
+import { makePostStack, notePerfFrame } from './post';
+import { registerStage, type StageMode } from './stage';
 
 /* FLAVIUS VRANĂU — the dust-logo effect ported 1:1 from VULCAN GLASS
    (github.com/flaviusvranau1/vulcan-glass, buildDustLogo + dust update loop):
@@ -78,16 +79,12 @@ export function initNameParticles(): Promise<void> {
 
     // --- scene
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)); // weak-GPU budget
     renderer.toneMapping = THREE.ACESFilmicToneMapping; // applied by OutputPass in the composer chain
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x04080f);
     const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 40);
     const post = makePostStack(renderer, scene, camera, section.clientWidth, section.clientHeight);
-    const fpsGuard = makeFpsGuard((level) => {
-      if (level === 1) post.setBloom(false);
-      else post.setPixelRatio(1);
-    });
 
     const dotTexture = (() => {
       const c = document.createElement('canvas');
@@ -156,25 +153,29 @@ export function initNameParticles(): Promise<void> {
       pointerSeen = true;
     });
 
-    // Render only while the section is meaningfully on screen (>=15%), so two
-    // composers never burn GPU simultaneously during section handoffs.
-    let visible = true;
-    new IntersectionObserver(
-      (en) => {
-        const e = en[en.length - 1];
-        visible = e.isIntersecting && e.intersectionRatio >= 0.14;
-      },
-      { threshold: [0, 0.15, 0.3] }
-    ).observe(section);
+    // Stage coordinator decides per scroll position: dominant section renders
+    // the full post stack, handoff neighbours render plain (no composer),
+    // off-screen scenes pause — two composers never run simultaneously.
+    let mode: StageMode = 'off';
+    registerStage(section, (m) => (mode = m));
 
     let last = performance.now() / 1000;
     let maxOffNow = 0;
+    let frameNo = 0;
 
     gsap.ticker.add(() => {
       const t = performance.now() / 1000;
       const dt = Math.min(0.05, t - last);
       last = t;
-      if (!visible) return;
+      if (mode === 'off') return;
+      frameNo++;
+      // degraded quality (L2+): simulate alternate HALVES of the dust each
+      // frame at double dt — motion speed is preserved, per-frame particle
+      // math (springs + two transcendentals each) is halved. At the frame
+      // rates where L2+ engages, the interleave is imperceptible.
+      const halfSim = window.__perfLevel >= 2;
+      const parity = frameNo & 1;
+      const simDt = halfSim ? Math.min(0.1, dt * 2) : dt;
 
       pointerSpeed *= Math.max(0, 1 - 5 * dt);
       const velBoost = 1 + Math.min(pointerSpeed, 2.5);
@@ -188,10 +189,11 @@ export function initNameParticles(): Promise<void> {
       }
       const R = 1.15;
       const push = 6 * velBoost; // a fast sweep blows the dust harder
-      const damp = Math.max(0, 1 - 4.5 * dt);
+      const damp = Math.max(0, 1 - 4.5 * simDt);
 
       maxOffNow = 0;
       for (let i = 0; i < n; i++) {
+        if (halfSim && (i & 1) === parity) continue; // other half runs next frame
         const ix = i * 3;
         if (t < releaseAt[i]) continue; // intro: still frozen in the scatter
         const px = dustPos[ix];
@@ -221,12 +223,12 @@ export function initNameParticles(): Promise<void> {
         fx += (dustHome[ix] - px) * 12;
         fy += (dustHome[ix + 1] - py) * 12;
         fz += (dustHome[ix + 2] - pz) * 12;
-        dustVel[ix] = (dustVel[ix] + fx * dt) * damp;
-        dustVel[ix + 1] = (dustVel[ix + 1] + fy * dt) * damp;
-        dustVel[ix + 2] = (dustVel[ix + 2] + fz * dt) * damp;
-        dustPos[ix] += dustVel[ix] * dt;
-        dustPos[ix + 1] += dustVel[ix + 1] * dt;
-        dustPos[ix + 2] += dustVel[ix + 2] * dt;
+        dustVel[ix] = (dustVel[ix] + fx * simDt) * damp;
+        dustVel[ix + 1] = (dustVel[ix + 1] + fy * simDt) * damp;
+        dustVel[ix + 2] = (dustVel[ix + 2] + fz * simDt) * damp;
+        dustPos[ix] += dustVel[ix] * simDt;
+        dustPos[ix + 1] += dustVel[ix + 1] * simDt;
+        dustPos[ix + 2] += dustVel[ix + 2] * simDt;
         // igloo signature: moving dust lights up, settled dust smolders
         const sp = Math.abs(dustVel[ix]) + Math.abs(dustVel[ix + 1]) + Math.abs(dustVel[ix + 2]);
         const br = Math.min(0.72 + sp * 1.6, 2.4);
@@ -241,9 +243,13 @@ export function initNameParticles(): Promise<void> {
       }
       dustGeo.attributes.position.needsUpdate = true;
       dustColAttr.needsUpdate = true;
-      // CA breathes only with cursor motion — the igloo language
-      post.render(t, Math.min(pointerSpeed, 2.5) * 0.008);
-      fpsGuard(dt * 1000);
+      if (mode === 'full') {
+        // CA breathes only with cursor motion — the igloo language
+        post.render(t, Math.min(pointerSpeed, 2.5) * 0.008);
+        notePerfFrame(dt * 1000); // only the full-stack scene feeds the guard
+      } else {
+        post.renderPlain(); // handoff neighbour: alive, but no composer
+      }
     });
 
     // QA hooks (§10)

@@ -2,7 +2,8 @@ import gsap from 'gsap';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { makePostStack, makeFpsGuard } from './post';
+import { makePostStack, notePerfFrame } from './post';
+import { registerStage, type StageMode } from './stage';
 
 /* Interactive 3D phone (PLAYBOOK §12): a big Apple-style phone whose app icons
    dodge the cursor — corridor push, damped springs — but NEVER leave the screen. */
@@ -146,7 +147,7 @@ export function initPhone3d(): void {
 
   function boot(): void {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)); // weak-GPU budget
     renderer.toneMapping = THREE.ACESFilmicToneMapping; // applied by OutputPass in the composer chain
     renderer.toneMappingExposure = 1.0;
 
@@ -155,10 +156,11 @@ export function initPhone3d(): void {
     const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 60);
     camera.position.set(0, 0, 11.5);
     const post = makePostStack(renderer, scene, camera, section.clientWidth, section.clientHeight);
-    const fpsGuard = makeFpsGuard((level) => {
-      if (level === 1) post.setBloom(false);
-      else post.setPixelRatio(1);
-    });
+
+    // Stage coordinator: dominant section renders the full post stack, handoff
+    // neighbours render plain (no composer), off-screen pauses entirely.
+    let mode: StageMode = 'off';
+    registerStage(section, (m) => (mode = m));
 
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -291,7 +293,7 @@ export function initPhone3d(): void {
     let lastPX = 0;
     let lastPY = 0;
     window.addEventListener('pointermove', (e) => {
-      if (!visible) return; // skip the layout read while the section is off screen
+      if (mode === 'off') return; // skip the layout read while the section is off screen
       const r = canvas.getBoundingClientRect();
       if (e.clientY < r.top || e.clientY > r.bottom) return;
       const nx = ((e.clientX - r.left) / r.width) * 2 - 1;
@@ -303,17 +305,6 @@ export function initPhone3d(): void {
       if (!pointerActive) ndc.copy(ndcTarget);
       pointerActive = true;
     });
-
-    // Render only while the section is meaningfully on screen (>=15%), so two
-    // composers never burn GPU simultaneously during section handoffs.
-    let visible = true;
-    new IntersectionObserver(
-      (en) => {
-        const e = en[en.length - 1];
-        visible = e.isIntersecting && e.intersectionRatio >= 0.14;
-      },
-      { threshold: [0, 0.15, 0.3] }
-    ).observe(section);
 
     const local = new THREE.Vector3();
     const prevLocal = new THREE.Vector2();
@@ -328,7 +319,7 @@ export function initPhone3d(): void {
       const t = performance.now() / 1000;
       const dt = Math.min(0.05, t - last);
       last = t;
-      if (!visible) return;
+      if (mode === 'off') return;
 
       ndc.x += (ndcTarget.x - ndc.x) * 0.14;
       ndc.y += (ndcTarget.y - ndc.y) * 0.14;
@@ -433,8 +424,12 @@ export function initPhone3d(): void {
         if (Math.abs(fx) > bx + 0.01 || fy > byTop + 0.01 || fy < byBot - 0.01) outOfBounds++;
         m.position.set(fx, fy, 0.26 + Math.min(0.14, o2 * 0.3));
       }
-      post.render(t, Math.min(pointerSpeed, 2.5) * 0.006);
-      fpsGuard(dt * 1000);
+      if (mode === 'full') {
+        post.render(t, Math.min(pointerSpeed, 2.5) * 0.006);
+        notePerfFrame(dt * 1000); // only the full-stack scene feeds the guard
+      } else {
+        post.renderPlain(); // handoff neighbour: alive, but no composer
+      }
     });
 
     (window as unknown as { __phoneInfo: () => { maxOff: number; outOfBounds: number } }).__phoneInfo = () => ({

@@ -2,7 +2,8 @@ import gsap from 'gsap';
 import * as THREE from 'three';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { makePostStack, makeFpsGuard } from './post';
+import { makePostStack } from './post';
+import { registerStage, type StageMode } from './stage';
 
 /* THE ICE DOME (igloo.inc hero interaction — PLAYBOOK §2/§3/§8):
    one InstancedMesh of matte ice bricks in a high-key slate fog. Bricks under
@@ -22,9 +23,21 @@ const DAMP = 7.5; // intro-assembly damping
 const LIFT_MAX = 0.24; // bump peak ≈ 0.8 × brick thickness at rest speed
 const SIGMA = 0.78; // gaussian half-width of the bump — soft flanks, no edge
 const K_UP = 420; // rise: firm — ~90% height within ~0.25s
-const C_UP = 36;
+const C_UP = 24; // ζ≈0.59 — jelly overshoot, one visible bounce ("flexibil")
 const K_DN = 25; // release: the SLOW half — elastic drift down, settle ~0.9s
 const C_DN = 8; // ζ≈0.8: one gentle dip past seated, then re-settle
+/* THE ENERGY UNDERNEATH (client note: bricks must feel LIFTED by a field, never
+   parked at spring equilibrium — igloo.inc raised clusters shimmer and track):
+   — per-brick smoothed target ⇒ the bump PROPAGATES outward from the hit
+   — one-shot kick + underdamped rise ⇒ jelly overshoot on attack
+   — two incommensurate sinusoids per brick + a global field breath ⇒ the
+     raised cluster levitates, and the seam glow throbs on the same phase */
+const SMOOTH_UP = 18; // target chase rate — scaled per brick and by proximity
+const SMOOTH_DN = 28; // fast target collapse on release — soft spring takes over
+const K_FLT = 110; // while held by the field, downward follow — medium-soft
+const C_FLT = 11; // ζ≈0.52 — bouncy float-follow, never a hard park
+const FLOAT_AMP = 0.14; // living float ≈14% of current lift
+const KICK = 1.6; // velocity jolt when the energy first grabs a brick
 const TILT_MAX = 0.24; // bricks lean AWAY from the cursor — petals parting
 const DOOR_AZ = -0.62; // entrance azimuth — camera-left
 const FOG = 0x989ea7;
@@ -103,7 +116,7 @@ export function initIgloo3d(): void {
 
   function boot(): void {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)); // weak-GPU budget
     renderer.toneMapping = THREE.ACESFilmicToneMapping; // applied by OutputPass in the composer chain
     renderer.toneMappingExposure = 1.12; // high-key chapter — lift the haze
 
@@ -111,11 +124,8 @@ export function initIgloo3d(): void {
     scene.background = new THREE.Color(FOG);
     scene.fog = new THREE.FogExp2(FOG, 0.055); // the dome floats in haze
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 60);
+    // adaptive quality (bloom-off / DPR-down / composer bypass) lives in post.ts
     const post = makePostStack(renderer, scene, camera, section.clientWidth, section.clientHeight);
-    const fpsGuard = makeFpsGuard((level) => {
-      if (level === 1) post.setBloom(false);
-      else post.setPixelRatio(1);
-    });
 
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(buildEnvScene(), 0.04).texture;
@@ -134,6 +144,10 @@ export function initIgloo3d(): void {
     // shadow pass is nearly free, and brick-on-brick occlusion sells the realism
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // the shadow pass re-renders ONLY on frames where the dome actually moves
+    // (lift/tilt/velocity beyond epsilon — intro and shivers included); a
+    // sleeping dome costs zero shadow work. Light and shadow camera are static.
+    renderer.shadowMap.autoUpdate = false;
     const hemi = new THREE.HemisphereLight(0xe9eff7, 0x767d88, 0.5);
     const dir = new THREE.DirectionalLight(0xfff2e2, 1.35);
     dir.position.set(-5, 4.5, 4);
@@ -257,6 +271,14 @@ export function initIgloo3d(): void {
     const release = new Float32Array(n);
     const settled = new Uint8Array(n);
     const baseCol = new Float32Array(n * 3);
+    // the energy underneath — per-brick personality (all allocated once, §9)
+    const tgt = new Float32Array(n); // smoothed bump target — the wave that propagates
+    const rateSeed = new Float32Array(n); // target chase rate seed 0.7–1.3
+    const fA = new Float32Array(n); // float frequency A (rad/s)
+    const fB = new Float32Array(n); // float frequency B — incommensurate with A
+    const phA = new Float32Array(n); // random phases — neighbours never sync
+    const phB = new Float32Array(n);
+    const active = new Uint8Array(n); // levitation latch — fires the grab-kick once
 
     const cBase = new THREE.Color(0xaab2bd);
     const cLift = new THREE.Color(0xd8e2f2).multiplyScalar(2.6); // instanceColor > 1 → bloom flares it
@@ -271,6 +293,11 @@ export function initIgloo3d(): void {
       off[i] = rnd(1.4, 2.8); // intro (§3): scattered outward along the normal, frozen
       release[i] = 0.15 + Math.random() * 1.1;
       seed[i] = 0.85 + Math.random() * 0.3;
+      rateSeed[i] = 0.85 + Math.random() * 0.45; // §2 per-piece seed — organic, not mechanical
+      fA[i] = rnd(1.8, 2.6); // energetic float band (PLAYBOOK §8 pattern, scaled up)
+      fB[i] = fA[i] * 1.47 + rnd(0.1, 0.4); // never a rational ratio — no visible loop
+      phA[i] = rnd(0, Math.PI * 2);
+      phB[i] = rnd(0, Math.PI * 2);
       cap[i] = b.scale.z * 0.9; // |off| capped at ~0.9× brick thickness
       const j = rnd(0.95, 1.05);
       baseCol[i * 3] = cBase.r * j;
@@ -540,15 +567,14 @@ export function initIgloo3d(): void {
     let lastPX = 0;
     let lastPY = 0;
 
-    // render/tick only while the section is meaningfully on screen (>=15%)
+    // stage coordinator: 'full' = dominant (post stack), 'plain' = handoff
+    // neighbour (bare render), 'off' = parked. One composer site-wide.
+    let mode: StageMode = 'off';
     let visible = false;
-    new IntersectionObserver(
-      (en) => {
-        const e = en[en.length - 1];
-        visible = e.isIntersecting && e.intersectionRatio >= 0.14;
-      },
-      { threshold: [0, 0.15, 0.3] }
-    ).observe(section);
+    registerStage(section, (m) => {
+      mode = m;
+      visible = m !== 'off';
+    });
 
     window.addEventListener('pointermove', (e) => {
       if (!visible) return; // skip the layout read while the section is off screen
@@ -623,18 +649,25 @@ export function initIgloo3d(): void {
         raycaster.setFromCamera(ndc, camera);
         hasHit = raycaster.ray.intersectSphere(proxySphere, hit) !== null;
       }
-      // a fast sweep raises the bump a little higher — never harder, just taller
-      const liftBoost = LIFT_MAX * (1 + Math.min(pointerSpeed, 1.5) * 0.25);
+      // a fast sweep raises the bump a little higher — never harder, just taller;
+      // the whole field also BREATHES on two incommensurate sinusoids — the
+      // energy holding the cluster is itself unsteady (§8)
+      const fieldPulse = 1 + Math.sin(t * 1.9) * 0.06 + Math.sin(t * 2.77) * 0.05;
+      const liftBoost = LIFT_MAX * (1 + Math.min(pointerSpeed, 1.5) * 0.25) * fieldPulse;
       const invSigma2 = 1 / (SIGMA * SIGMA);
       const dampIntro = Math.max(0, 1 - DAMP * dt);
       const dampUp = Math.max(0, 1 - C_UP * dt);
       const dampDn = Math.max(0, 1 - C_DN * dt);
+      const dampFlt = Math.max(0, 1 - C_FLT * dt);
       const rotDamp = Math.max(0, 1 - 8 * dt);
 
       maxLiftNow = 0;
       hoveredNow = 0;
+      let maxVelNow = 0;
+      let maxRotNow = 0;
       for (let i = 0; i < n; i++) {
         const i3 = i * 3;
+        let pulse = 0; // this brick's float phase — shared by height and glow
         if (t - introStart >= release[i]) {
           // the traveling bump: gaussian height field centred on the (inertial) hit
           let g = 0;
@@ -661,12 +694,36 @@ export function initIgloo3d(): void {
             off[i] += vel[i] * dt;
             if (Math.abs(off[i]) < cap[i]) settled[i] = 1;
           } else {
-            const target = g * liftBoost * seed[i];
-            // asymmetric spring: firm ONLY while actively raised by the cursor;
-            // everything on the way down (incl. the dip recovery) stays soft
-            const rising = g > 0.02 && target > off[i];
-            vel[i] += (target - off[i]) * (rising ? K_UP : K_DN) * dt;
-            vel[i] *= rising ? dampUp : dampDn;
+            // the energy PROPAGATES: each brick chases the bump through its own
+            // smoothed target — the centre brick answers first, the flanks join
+            // tens of ms later (chase rate ∝ proximity, seeded per brick)
+            const raw = g * liftBoost * seed[i];
+            const chase = raw > tgt[i] ? SMOOTH_UP * rateSeed[i] * (0.35 + 0.65 * g) : SMOOTH_DN;
+            tgt[i] += (raw - tgt[i]) * Math.min(1, chase * dt);
+
+            const lev = tgt[i] > 0.02; // held by the field — never parked
+            let target = tgt[i];
+            if (lev) {
+              if (!active[i]) {
+                active[i] = 1;
+                // one-shot jolt — the energy GRABS it (floored so a bump that
+                // ARRIVES at a brick still pops it, not only a direct hit)
+                vel[i] += KICK * (0.25 + 0.75 * g) * seed[i];
+              }
+              // living float: two incommensurate sinusoids, amplitude ∝ lift —
+              // the raised cluster shimmers like it's held by an unstable field
+              pulse = Math.sin(t * fA[i] + phA[i]) * 0.625 + Math.sin(t * fB[i] + phB[i]) * 0.375;
+              target += tgt[i] * FLOAT_AMP * pulse;
+            } else active[i] = 0;
+
+            // three-regime spring: firm push UP (underdamped — jelly overshoot),
+            // medium-soft float-follow while the field still holds the brick,
+            // and the SLOW elastic release (incl. the dip past seated) the
+            // instant the bump leaves it — never yanked down by a dying target
+            const held = lev && g > 0.02;
+            const firm = held && target > off[i];
+            vel[i] += (target - off[i]) * (firm ? K_UP : held ? K_FLT : K_DN) * dt;
+            vel[i] *= firm ? dampUp : held ? dampFlt : dampDn;
             off[i] += vel[i] * dt;
             // soft floor: a released brick may dip a hair below seated, then re-settle
             if (off[i] < -0.12 * THICK) {
@@ -706,7 +763,9 @@ export function initIgloo3d(): void {
                 tiltAx[i3 + 1] /= al;
                 tiltAx[i3 + 2] /= al;
               }
-              tTarget = TILT_MAX * 4 * g * (1 - g) * seed[i]; // peaks mid-flank
+              // peaks mid-flank; a slow random-phase wobble keeps the lean alive
+              tTarget =
+                TILT_MAX * 4 * g * (1 - g) * seed[i] * (1 + 0.25 * Math.sin(t * fA[i] * 0.53 + phB[i]));
             }
           }
           rotVel[i] += (tTarget - rot[i]) * 70 * dt;
@@ -717,6 +776,10 @@ export function initIgloo3d(): void {
         const lift = Math.abs(off[i]);
         if (lift > maxLiftNow) maxLiftNow = lift;
         if (settled[i] && off[i] > cap[i] * 0.15) hoveredNow++;
+        const av = Math.abs(vel[i]);
+        if (av > maxVelNow) maxVelNow = av;
+        const ar = Math.abs(rot[i]);
+        if (ar > maxRotNow) maxRotNow = ar;
 
         _p.set(base[i3] + nrm[i3] * off[i], base[i3 + 1] + nrm[i3 + 1] * off[i], base[i3 + 2] + nrm[i3 + 2] * off[i]);
         _q.fromArray(quats, i * 4);
@@ -728,8 +791,14 @@ export function initIgloo3d(): void {
         _m.compose(_p, _q, _s);
         meshes[meshIdxOf[i]].setMatrixAt(instIdxOf[i], _m);
 
-        // more interior light escapes as the brick lifts
-        const lr = Math.min(1, Math.max(0, off[i] / cap[i]));
+        // more interior light escapes as the brick lifts; while levitating the
+        // flare BREATHES on the same float phase — a live core, not a lamp
+        let lr = Math.min(1, Math.max(0, off[i] / cap[i]));
+        if (pulse !== 0) {
+          lr *= 1 + pulse * 0.35;
+          if (lr > 1) lr = 1;
+          else if (lr < 0) lr = 0;
+        }
         const ca = colArrs[meshIdxOf[i]];
         const c3 = instIdxOf[i] * 3;
         ca[c3] = baseCol[i3] + (cLift.r - baseCol[i3]) * lr;
@@ -740,6 +809,9 @@ export function initIgloo3d(): void {
         im.instanceMatrix.needsUpdate = true;
         im.instanceColor!.needsUpdate = true;
       }
+      // shadow gate: re-render the shadow pass only while the dome is awake
+      // (any lift, tilt or velocity beyond epsilon — covers intro, hover, shiver)
+      if (maxLiftNow > 0.003 || maxVelNow > 0.02 || maxRotNow > 0.003) renderer.shadowMap.needsUpdate = true;
 
       // snow caps follow the camera's real up; diamond dust twinkles
       upView.value.set(0, 1, 0).applyQuaternion(_upq.copy(camera.quaternion).invert());
@@ -761,8 +833,8 @@ export function initIgloo3d(): void {
       }
       snowGeo.attributes.position.needsUpdate = true;
 
-      post.render(t, Math.min(pointerSpeed, 2.5) * 0.006);
-      fpsGuard(dt * 1000);
+      if (mode === 'full') post.render(t, Math.min(pointerSpeed, 2.5) * 0.006);
+      else post.renderPlain();
     });
 
     // ---------- QA hooks (§10) ----------

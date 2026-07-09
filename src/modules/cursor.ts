@@ -1,6 +1,11 @@
 import gsap from 'gsap';
 
-/** Custom cursor (lerped dot, grows + labels on hover) + magnetic elements. */
+/** Custom cursor + magnetic elements. The dot is positioned DIRECTLY in the
+ *  pointermove handler — zero coupling to the render loop, so it stays
+ *  native-snappy even when a 3D scene drags the frame rate to 20fps.
+ *  Centering is a trailing translate(-50%,-50%), so the hot path does no
+ *  layout reads (no offsetWidth) and no lerp ticker at all. The hover
+ *  grow/label effect stays in CSS (width/height transition — cheap, rare). */
 export function initCursor(): void {
   const fine = window.matchMedia('(pointer: fine)').matches;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -10,23 +15,13 @@ export function initCursor(): void {
   const cursor = document.getElementById('cursor')!;
   const label = document.getElementById('cursor-label')!;
 
-  const pos = { x: innerWidth / 2, y: innerHeight / 2 };
-  const target = { x: pos.x, y: pos.y };
-
-  window.addEventListener('mousemove', (e) => {
-    target.x = e.clientX;
-    target.y = e.clientY;
-  });
-
-  gsap.ticker.add(() => {
-    const dx = target.x - pos.x;
-    const dy = target.y - pos.y;
-    // converged: skip the offsetWidth layout read + style write until the mouse moves again
-    if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) return;
-    pos.x += dx * 0.18;
-    pos.y += dy * 0.18;
-    cursor.style.transform = `translate(${pos.x - cursor.offsetWidth / 2}px, ${pos.y - cursor.offsetHeight / 2}px)`;
-  });
+  window.addEventListener(
+    'pointermove',
+    (e) => {
+      cursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
+    },
+    { passive: true }
+  );
 
   const LABELS: Record<string, string> = { view: 'View', move: 'Move', hover: '' };
   document.querySelectorAll<HTMLElement>('[data-cursor]').forEach((elm) => {
