@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flavius Vranău — Creative Full-Stack Developer</title>
-  <meta name="description" content="Creative Full-Stack Developer. I build web experiences that move — React, Next.js, Node.js, GSAP, Three.js. Based in Romania, working worldwide." />
+  <meta name="description" content="Creative Full-Stack Developer. I build web experiences that move — React, Next.js, Node.js, GSAP, Three.js. Based in Bistrița, Romania, working worldwide." />
   <meta property="og:title" content="Flavius Vranău — Creative Full-Stack Developer" />
   <meta property="og:description" content="I build web experiences that move." />
   <meta property="og:image" content="https://flaviusvranau1.github.io/flavius-vranau-folio/portrait-hero.jpg" />
   <meta property="og:type" content="website" />
-  <meta name="theme-color" content="#0B0A08" />
+  <meta name="theme-color" content="#04080F" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
 </head>
 <body>
@@ -28,7 +28,7 @@
 
   <!-- Header -->
   <header class="site-head" id="site-head">
-    <a class="site-head__brand" href="#hero" data-cursor="hover">FV<span class="site-head__brand-dot">.</span></a>
+    <a class="site-head__brand" href="#intro" data-cursor="hover">FLAVIUS<span>VRANĂU</span></a>
     <div class="site-head__right">
       <span class="site-head__status"><i></i><span data-i18n="status">Available for work</span></span>
       <button class="lang-toggle" id="lang-toggle" data-cursor="hover" aria-label="Switch language">
@@ -41,99 +41,115 @@
 
   <main id="main">
 
-    <!-- 2 · HERO -->
-    <section class="hero" id="hero">
-      <div class="hero__canvas-wrap">
-        <canvas class="hero__canvas" id="hero-canvas"></canvas>
-        <img class="hero__fallback" id="hero-fallback" src="./portrait-hero.jpg" alt="Portrait of Flavius Vranău" />
-        <div class="hero__shade"></div>
+    <!-- 1 · INTRO — the name, made of dust -->
+    <section class="intro" id="intro">
+      <canvas class="intro__canvas" id="name-canvas" aria-hidden="true"></canvas>
+      <h1 class="intro__fallback" id="intro-fallback">FLAVIUS VRANĂU</h1>
+      <div class="intro__meta">
+        <p class="eyebrow" data-i18n="introEyebrow">Creative Full-Stack Developer</p>
+        <p class="intro__tagline" id="intro-tagline" data-i18n="tagline">I build web experiences that move.</p>
       </div>
-      <div class="hero__light" id="hero-light"></div>
-      <div class="hero__content">
-        <h1 class="hero__title" id="hero-title" aria-label="Flavius Vranău">FLAVIUS&nbsp;VRANĂU</h1>
-        <p class="hero__tagline" id="hero-tagline" data-i18n="tagline">Creative Full-Stack Developer.<br />I build web experiences that move.</p>
-      </div>
-      <div class="hero__hint" id="hero-hint">
-        <span class="hero__hint-line"></span>
-        <span class="hero__hint-text" data-i18n="scroll">Scroll</span>
+      <div class="intro__hint" id="intro-hint">
+        <span class="intro__hint-line"></span>
+        <span class="intro__hint-text mono" data-i18n="scroll">Scroll</span>
       </div>
     </section>
 
-    <!-- 3 · MANIFESTO -->
+    <!-- 2 · PHONE — apps that make way for the cursor -->
+    <section class="phone" id="phone">
+      <div class="phone__ui">
+        <p class="eyebrow" data-i18n="phoneLabel">01 — Playground</p>
+        <p class="phone__hint mono" data-i18n="phoneHint">Hover the apps — they make way</p>
+      </div>
+      <canvas class="phone__canvas" id="phone-canvas" aria-label="Interactive 3D phone with app icons that dodge the cursor"></canvas>
+    </section>
+
+    <!-- 3 · DESK — the tools rise to meet you -->
+    <section class="desk" id="desk">
+      <div class="desk__ui">
+        <p class="eyebrow" data-i18n="deskLabel">02 — The desk, after hours</p>
+        <p class="desk__hint mono" data-i18n="deskHint">Hover the objects — they rise</p>
+      </div>
+      <canvas class="desk__canvas" id="desk-canvas" aria-label="Interactive 3D night desk scene"></canvas>
+    </section>
+
+    <!-- 4 · OFF DUTY — the mountain, scroll-scrubbed -->
+    <section class="hero" id="hero">
+      <div class="hero__canvas-wrap">
+        <canvas class="hero__canvas" id="hero-canvas"></canvas>
+        <img class="hero__fallback" id="hero-fallback" src="./portrait-hero.jpg" alt="Flavius Vranău in the snowy Carpathians" loading="lazy" />
+        <div class="hero__shade"></div>
+      </div>
+      <div class="hero__light" id="hero-light"></div>
+      <div class="hero__corner">
+        <p class="eyebrow" data-i18n="heroLabel">03 — Off duty</p>
+        <p class="hero__line" data-i18n="heroLine">Same patience, higher altitude — the Carpathians.</p>
+      </div>
+    </section>
+
+    <!-- 5 · MANIFESTO -->
     <section class="manifesto" id="manifesto">
-      <p class="section-label mono" data-i18n="manifestoLabel">01 — Who I am</p>
+      <p class="section-label eyebrow" data-i18n="manifestoLabel">04 — Who I am</p>
       <div class="manifesto__lines" id="manifesto-lines">
-        <div class="mask"><p class="manifesto__line" data-i18n="m1">I turn ideas into things people actually use.</p></div>
+        <div class="mask"><p class="manifesto__line" data-i18n="m1">5+ years turning ideas into things people actually use.</p></div>
         <div class="mask"><p class="manifesto__line" data-i18n="m2">Clean code. Real motion. <em>Shipped.</em></p></div>
         <div class="mask"><p class="manifesto__line" data-i18n="m3">Front end to back end — design to deploy.</p></div>
         <div class="mask"><p class="manifesto__line manifesto__line--accent" data-i18n="m4">The details are the product.</p></div>
       </div>
     </section>
 
-    <!-- 4 · WHAT I DO -->
+    <!-- 6 · WHAT I DO -->
     <section class="craft" id="craft">
       <div class="craft__pin" id="craft-pin">
-        <p class="section-label mono" data-i18n="craftLabel">02 — What I do</p>
+        <p class="section-label eyebrow" data-i18n="craftLabel">05 — What I do</p>
         <h2 class="craft__title" data-i18n="craftTitle">CRAFT</h2>
         <ul class="craft__list">
           <li class="craft__row" data-row>
             <span class="craft__num mono">01</span>
             <span class="craft__name" data-i18n="c1">Front-end</span>
-            <span class="craft__stack mono" data-i18n="c1stack">React · Next.js · TypeScript · Tailwind</span>
+            <span class="craft__stack mono">React · Next.js · TypeScript · Tailwind</span>
           </li>
           <li class="craft__row" data-row>
             <span class="craft__num mono">02</span>
             <span class="craft__name" data-i18n="c2">Motion</span>
-            <span class="craft__stack mono" data-i18n="c2stack">GSAP · Three.js · Framer Motion · Lenis</span>
+            <span class="craft__stack mono">GSAP · Three.js · Framer Motion · Lenis</span>
           </li>
           <li class="craft__row" data-row>
             <span class="craft__num mono">03</span>
             <span class="craft__name" data-i18n="c3">Back-end</span>
-            <span class="craft__stack mono" data-i18n="c3stack">Node.js · Ruby on Rails · REST APIs</span>
+            <span class="craft__stack mono">Node.js · Ruby on Rails · REST APIs</span>
           </li>
           <li class="craft__row" data-row>
             <span class="craft__num mono">04</span>
             <span class="craft__name" data-i18n="c4">Data</span>
-            <span class="craft__stack mono" data-i18n="c4stack">MongoDB · PostgreSQL · MySQL</span>
+            <span class="craft__stack mono">MongoDB · PostgreSQL · MySQL</span>
           </li>
           <li class="craft__row" data-row>
             <span class="craft__num mono">05</span>
             <span class="craft__name" data-i18n="c5">Approach</span>
-            <span class="craft__stack mono" data-i18n="c5stack">Ship fast · AI-assisted · Detail-obsessed</span>
+            <span class="craft__stack mono" data-i18n="c5stack">Ship fast · AI-assisted · n8n automation</span>
           </li>
         </ul>
       </div>
     </section>
 
-    <!-- 5 · SELECTED WORK -->
+    <!-- 7 · SELECTED WORK -->
     <section class="work" id="work">
       <div class="work__pin" id="work-pin">
         <div class="work__head">
-          <p class="section-label mono" data-i18n="workLabel">03 — Selected work</p>
+          <p class="section-label eyebrow" data-i18n="workLabel">06 — Selected work</p>
           <h2 class="work__title" data-i18n="workTitle">WORK</h2>
         </div>
         <div class="work__track" id="work-track">
-          <article class="card" style="position:relative" data-cursor="view">
-            <a href="https://flaviusvranau1.github.io/vulcan-glass/" target="_blank" rel="noopener" aria-label="Open VULCAN GLASS live demo" style="position:absolute;inset:0;z-index:3" data-cursor="view"></a>
-            <div class="card__media">
-              <img class="card__img" data-src="./work/vulcan-glass.jpg" alt="VULCAN GLASS — interactive 3D glass tire demo" />
-            </div>
-            <div class="card__body">
-              <span class="card__index mono">01</span>
-              <h3 class="card__name">VULCAN GLASS</h3>
-              <p class="card__line" data-i18n="w0">Interactive 3D glass tire — igloo-style WebGL, live in your browser. Click to play.</p>
-              <div class="card__chips mono"><span>Three.js</span><span>GSAP</span><span>WebGL</span><span>Live ↗</span></div>
-            </div>
-          </article>
           <article class="card" data-cursor="view">
             <div class="card__media">
               <img class="card__img" data-src="./work/miami.webp" alt="Miami project artwork" />
             </div>
             <div class="card__body">
-              <span class="card__index mono">02</span>
+              <span class="card__index mono">01</span>
               <h3 class="card__name">MIAMI</h3>
-              <p class="card__line" data-i18n="w1">Cross-platform companion app — one codebase, web to pocket.</p>
-              <div class="card__chips mono"><span>React Native</span><span>iOS</span><span>Android</span><span>Web</span></div>
+              <p class="card__line" data-i18n="w1">Cross-platform companion app — one back end, web and both app stores.</p>
+              <div class="card__chips mono"><span>React Native</span><span>iOS</span><span>Android</span><span>Node.js</span></div>
             </div>
           </article>
           <article class="card" data-cursor="view">
@@ -141,10 +157,10 @@
               <img class="card__img" data-src="./work/escalade.webp" alt="Cadillac Escalade project artwork" />
             </div>
             <div class="card__body">
-              <span class="card__index mono">03</span>
+              <span class="card__index mono">02</span>
               <h3 class="card__name">CADILLAC ESCALADE</h3>
-              <p class="card__line" data-i18n="w2">Luxury chauffeur &amp; fleet booking platform — web + mobile. In progress.</p>
-              <div class="card__chips mono"><span>React</span><span>React Native</span><span>Node.js</span><span>MongoDB</span></div>
+              <p class="card__line" data-i18n="w2">Chauffeur booking platform — fleet, drivers, live ride status. ~80% shipped.</p>
+              <div class="card__chips mono"><span>React</span><span>React Native</span><span>MongoDB</span></div>
             </div>
           </article>
           <article class="card" data-cursor="view">
@@ -152,9 +168,9 @@
               <img class="card__img" data-src="./work/freelance.webp" alt="Freelance web artwork" />
             </div>
             <div class="card__body">
-              <span class="card__index mono">04</span>
+              <span class="card__index mono">03</span>
               <h3 class="card__name" data-i18n="w3name">FREELANCE WEB</h3>
-              <p class="card__line" data-i18n="w3">Cinematic landing pages and presentation sites that sell.</p>
+              <p class="card__line" data-i18n="w3">Cinematic presentation sites for real businesses — reusable, client-ready templates.</p>
               <div class="card__chips mono"><span>GSAP</span><span>Three.js</span><span>Next.js</span></div>
             </div>
           </article>
@@ -162,19 +178,19 @@
       </div>
     </section>
 
-    <!-- 6a · PORTRAIT MOMENT 2 — light sweep scrub -->
+    <!-- 8 · ON STAGE — light sweep -->
     <section class="moment" id="moment">
       <div class="moment__pin" id="moment-pin">
         <canvas class="moment__canvas" id="moment-canvas"></canvas>
         <div class="moment__shade"></div>
         <h2 class="moment__title" id="moment-title" data-i18n="momentTitle">LIGHT DOES THE TALKING</h2>
-        <p class="moment__sub mono" id="moment-sub" data-i18n="momentSub">7 years of public speaking — rooms of 500 to 800 people</p>
+        <p class="moment__sub mono" data-i18n="momentSub">7 years of public speaking — rooms of 500 to 800 people</p>
       </div>
     </section>
 
-    <!-- 6b · DEPTH PORTRAIT — interactive 2.5D -->
+    <!-- 9 · IN DEPTH — interactive 2.5D portrait -->
     <section class="depth" id="depth">
-      <p class="section-label mono" data-i18n="depthLabel">04 — In depth</p>
+      <p class="section-label eyebrow" data-i18n="depthLabel">08 — In depth</p>
       <div class="depth__stage" id="depth-stage" data-cursor="move">
         <canvas class="depth__canvas" id="depth-canvas"></canvas>
         <img class="depth__fallback" id="depth-fallback" src="./portrait-depth-src.jpg" alt="Portrait of Flavius Vranău speaking on stage" />
@@ -182,47 +198,47 @@
       <p class="depth__caption mono" data-i18n="depthCaption">Move the cursor — the portrait answers.</p>
     </section>
 
-    <!-- 7 · STORY / TIMELINE -->
+    <!-- 10 · STORY / TIMELINE -->
     <section class="story" id="story">
-      <p class="section-label mono" data-i18n="storyLabel">05 — The path</p>
+      <p class="section-label eyebrow" data-i18n="storyLabel">09 — The path</p>
       <div class="story__rail">
         <span class="story__progress" id="story-progress"></span>
         <ol class="story__steps">
           <li class="story__step" data-step>
             <span class="story__marker"></span>
-            <span class="story__year mono" data-i18n="s1y">2015 — 2019</span>
-            <h3 class="story__step-title" data-i18n="s1t">Foundations</h3>
-            <p class="story__step-text" data-i18n="s1">Computer Science at TU Cluj-Napoca — algorithms, C++, and a real-time lane-detection thesis in OpenCV.</p>
+            <span class="story__year mono">2015 — 2019</span>
+            <h3 class="story__step-title" data-i18n="s1t">Computer Science, Cluj</h3>
+            <p class="story__step-text" data-i18n="s1">Technical University of Cluj-Napoca — algorithms, C++, and a lane-detection thesis in OpenCV.</p>
           </li>
           <li class="story__step" data-step>
+            <span class="story__year mono">2018 — 2022</span>
             <span class="story__marker"></span>
-            <span class="story__year mono" data-i18n="s2y">2018 — 2022</span>
             <h3 class="story__step-title" data-i18n="s2t">First dev roles</h3>
-            <p class="story__step-text" data-i18n="s2">Full-stack at Takeoff Labs in Cluj (Rails, PostgreSQL), then front-end for FOUND CO in London.</p>
+            <p class="story__step-text" data-i18n="s2">Takeoff Labs, Cluj — Ruby on Rails, PostgreSQL, React. Then FOUND CO, London — front-end for a design-led agency.</p>
           </li>
           <li class="story__step" data-step>
             <span class="story__marker"></span>
-            <span class="story__year mono" data-i18n="s3y">2024 — 2025</span>
-            <h3 class="story__step-title" data-i18n="s3t">Product work</h3>
-            <p class="story__step-text" data-i18n="s3">Logistics booking platform at Smart Box Digital — React, Node.js, MongoDB. Then Miami and the Escalade fleet platform.</p>
+            <span class="story__year mono">2024 — 2025</span>
+            <h3 class="story__step-title" data-i18n="s3t">Full-stack products</h3>
+            <p class="story__step-text" data-i18n="s3">Smart Box Digital — logistics booking platform in React, Node.js and MongoDB, with real-time tracking APIs.</p>
           </li>
           <li class="story__step" data-step>
             <span class="story__marker"></span>
-            <span class="story__year mono" data-i18n="s4y">2025 — NOW</span>
-            <h3 class="story__step-title" data-i18n="s4t">Automation &amp; creative work</h3>
-            <p class="story__step-text" data-i18n="s4">n8n automations and internal tools at Far Foundation — plus cinematic, scroll-driven sites for real clients.</p>
+            <span class="story__year mono">2025 —</span>
+            <h3 class="story__step-title" data-i18n="s4t">Automation & creative work</h3>
+            <p class="story__step-text" data-i18n="s4">Far Foundation — n8n automations and internal tools. Nights and weekends: cinematic sites like this one.</p>
           </li>
           <li class="story__step" data-step>
             <span class="story__marker"></span>
-            <span class="story__year mono" data-i18n="s5y">NEXT</span>
-            <h3 class="story__step-title story__step-title--accent" data-i18n="s5t">Your project</h3>
-            <p class="story__step-text" data-i18n="s5">Remote, worldwide.</p>
+            <span class="story__year mono">&nbsp;</span>
+            <h3 class="story__step-title story__step-title--accent" data-i18n="s5t">Next</h3>
+            <p class="story__step-text" data-i18n="s5">Your project. Remote, worldwide.</p>
           </li>
         </ol>
       </div>
     </section>
 
-    <!-- 8 · CONTACT -->
+    <!-- 11 · CONTACT -->
     <section class="contact" id="contact">
       <div class="contact__portrait">
         <img src="./portrait-quiet.jpg" alt="" loading="lazy" />
@@ -237,7 +253,7 @@
         <a href="https://linkedin.com/in/flavius-vranau" target="_blank" rel="noopener" class="magnetic" data-cursor="hover">LinkedIn</a>
         <a href="mailto:FlaviusVranauServiciu@gmail.com" class="magnetic" data-cursor="hover">Email</a>
       </div>
-      <p class="contact__foot mono"><span data-i18n="foot">Based in Romania — working worldwide</span> · © <span id="year"></span> Flavius Vranău</p>
+      <p class="contact__foot mono"><span data-i18n="foot">Based in Bistrița, Romania — working worldwide</span> · © <span id="year"></span> Flavius Vranău</p>
     </section>
 
   </main>

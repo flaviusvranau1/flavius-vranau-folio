@@ -1,0 +1,12 @@
+import { chromium } from 'playwright-core';
+const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const browser = await chromium.launch({ executablePath: CHROME, headless: false, args: ['--window-position=-2600,-2600','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--mute-audio','--no-first-run'] });
+const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await page.goto('http://localhost:5199', { waitUntil: 'domcontentloaded' });
+await page.waitForFunction(`!document.getElementById('preloader')`, null, { timeout: 40000 });
+await page.evaluate(`window.__lenis.scrollTo(document.getElementById('desk').offsetTop, { immediate: true })`);
+await page.waitForFunction(`window.__deskInfo !== undefined`, null, { timeout: 45000 });
+await page.waitForTimeout(3200);
+await page.screenshot({ path: 'qa/shots/desk-comp.png' });
+await browser.close();
+console.log('shot saved');
