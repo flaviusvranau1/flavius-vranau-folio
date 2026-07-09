@@ -2,6 +2,7 @@ import gsap from 'gsap';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { makePostStack, makeFpsGuard } from './post';
 
 /* The desk, after hours (PLAYBOOK §15): real photoscanned CC0 props (Poly Haven),
    photographic HDRI + a warm desk lamp with soft shadows. Hover an object and it
@@ -48,16 +49,22 @@ export function initDesk3d(): void {
   io.observe(section);
 
   async function boot(): Promise<void> {
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; // applied by OutputPass in the composer chain
     renderer.toneMappingExposure = 1.0;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x04080f);
     scene.fog = new THREE.Fog(0x04080f, 3.2, 7.5);
     const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 30);
+    const post = makePostStack(renderer, scene, camera, section.clientWidth, section.clientHeight);
+    const fpsGuard = makeFpsGuard((level) => {
+      if (level === 1) post.setBloom(false);
+      else renderer.setPixelRatio(1);
+    });
 
     // photographic HDRI environment, dimmed — the lamp owns the scene
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -173,6 +180,7 @@ export function initDesk3d(): void {
       const w = section.clientWidth;
       const h = section.clientHeight;
       renderer.setSize(w, h, false);
+      post.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     };
@@ -205,6 +213,7 @@ export function initDesk3d(): void {
     const camBase = new THREE.Vector3(0.08, 0.6, 1.8);
     const lookAt = new THREE.Vector3(0, 0.15, -0.12);
     let last = performance.now() / 1000;
+    let nextShiver = last + 9 + Math.random() * 6;
 
     gsap.ticker.add(() => {
       const t = performance.now() / 1000;
@@ -217,6 +226,15 @@ export function initDesk3d(): void {
 
       camera.position.set(camBase.x + ndc.x * 0.11, camBase.y + -ndc.y * 0.05, camBase.z);
       camera.lookAt(lookAt);
+
+      // the lamp breathes on two incommensurate sines; a shiver stirs one object now and then (§8)
+      lamp.intensity = 7.5 * (1 + Math.sin(t * 0.9) * 0.05 + Math.sin(t * 1.37) * 0.04);
+      if (t > nextShiver) {
+        nextShiver = t + 9 + Math.random() * 6;
+        const candidates = live.filter((l) => l.hover);
+        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        if (pick) pick.vy += 0.35 + Math.random() * 0.25;
+      }
 
       let hoveredName = '';
       if (pointerActive && pointerInside) {
@@ -246,13 +264,18 @@ export function initDesk3d(): void {
         p.proxy.position.y += (p.y + (p.proxy.userData.baseY ?? (p.proxy.userData.baseY = p.proxy.position.y)) - p.proxy.position.y) * 1;
         p.proxy.position.y = (p.proxy.userData.baseY as number) + p.y;
       }
-      renderer.render(scene, camera);
+      post.render(t);
+      fpsGuard(dt * 1000);
     });
 
     // QA hooks (§10)
     const qa = window as unknown as {
       __deskInfo: () => Record<string, number>;
       __deskScreenPos: (name: string) => { x: number; y: number } | null;
+    };
+    (window as unknown as { __deskRenderOnce: () => void }).__deskRenderOnce = () => {
+      post.render(performance.now() / 1000);
+      renderer.getContext().finish();
     };
     qa.__deskInfo = () =>
       ({ ...Object.fromEntries(live.map((l) => [l.name, +l.y.toFixed(4)])), _dbg: dbg }) as unknown as Record<string, number>;

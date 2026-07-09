@@ -1,0 +1,14 @@
+import { chromium } from 'playwright-core';
+const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const browser = await chromium.launch({ executablePath: CHROME, headless: false, args: ['--window-position=-2600,-2600','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--mute-audio','--no-first-run'] });
+const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await page.goto('http://localhost:5199', { waitUntil: 'domcontentloaded' });
+await page.waitForFunction(`!document.getElementById('preloader')`, null, { timeout: 40000 });
+await page.waitForTimeout(2000);
+const nameMs = await page.evaluate(`(() => { const t0 = performance.now(); for (let i=0;i<30;i++) window.__nameRenderOnce(); return +((performance.now()-t0)/30).toFixed(2); })()`);
+await page.evaluate(`window.__lenis.scrollTo(document.getElementById('desk').offsetTop, { immediate: true })`);
+await page.waitForFunction(`window.__deskRenderOnce !== undefined`, null, { timeout: 45000 });
+await page.waitForTimeout(2500);
+const deskMs = await page.evaluate(`(() => { const t0 = performance.now(); for (let i=0;i<30;i++) window.__deskRenderOnce(); return +((performance.now()-t0)/30).toFixed(2); })()`);
+console.log({ nameMsPerFrame: nameMs, deskMsPerFrame: deskMs, budget60fps: 16.7 });
+await browser.close();

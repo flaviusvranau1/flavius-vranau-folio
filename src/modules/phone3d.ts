@@ -2,6 +2,7 @@ import gsap from 'gsap';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { makePostStack, makeFpsGuard } from './post';
 
 /* Interactive 3D phone (PLAYBOOK §12): a big Apple-style phone whose app icons
    dodge the cursor — corridor push, damped springs — but NEVER leave the screen. */
@@ -144,13 +145,20 @@ export function initPhone3d(): void {
   io.observe(section);
 
   function boot(): void {
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; // applied by OutputPass in the composer chain
+    renderer.toneMappingExposure = 1.0;
 
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x04080f);
     const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 60);
     camera.position.set(0, 0, 11.5);
+    const post = makePostStack(renderer, scene, camera, section.clientWidth, section.clientHeight);
+    const fpsGuard = makeFpsGuard((level) => {
+      if (level === 1) post.setBloom(false);
+      else renderer.setPixelRatio(1);
+    });
 
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -264,6 +272,7 @@ export function initPhone3d(): void {
       const w = section.clientWidth;
       const h = section.clientHeight;
       renderer.setSize(w, h, false);
+      post.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       // keep the phone big: ~86% of viewport height
@@ -303,6 +312,8 @@ export function initPhone3d(): void {
     let maxOffNow = 0;
     let outOfBounds = 0;
     let last = performance.now() / 1000;
+    // ambient micro-events (§8): every 7–15s a shiver runs through one row of icons
+    let nextShiver = performance.now() / 1000 + 7 + Math.random() * 8;
 
     gsap.ticker.add(() => {
       const t = performance.now() / 1000;
@@ -318,6 +329,18 @@ export function initPhone3d(): void {
       phone.rotation.y += (-0.24 + ndc.x * 0.1 - phone.rotation.y) * 0.05;
       phone.rotation.x += (0.03 + -ndc.y * 0.06 - phone.rotation.x) * 0.05;
       phone.position.y = Math.sin(t * 0.5) * 0.05;
+      // two incommensurate sines on the rim light — the loop never shows (§8)
+      rim.intensity = 14 * (1 + Math.sin(t * 0.9) * 0.08 + Math.sin(t * 1.37) * 0.06);
+      // micro-event: a shiver through one random row
+      if (t > nextShiver) {
+        nextShiver = t + 7 + Math.random() * 8;
+        const row = Math.floor(Math.random() * ROWS);
+        for (let c2 = 0; c2 < COLS; c2++) {
+          const i = row * COLS + c2;
+          vel[i * 2] += (Math.random() - 0.5) * 1.6;
+          vel[i * 2 + 1] += (Math.random() - 0.5) * 1.2;
+        }
+      }
 
       let hasHit = false;
       if (pointerActive) {
@@ -401,7 +424,8 @@ export function initPhone3d(): void {
         if (Math.abs(fx) > bx + 0.01 || fy > byTop + 0.01 || fy < byBot - 0.01) outOfBounds++;
         m.position.set(fx, fy, 0.26 + Math.min(0.14, o2 * 0.3));
       }
-      renderer.render(scene, camera);
+      post.render(t, Math.min(pointerSpeed, 2.5) * 0.006);
+      fpsGuard(dt * 1000);
     });
 
     (window as unknown as { __phoneInfo: () => { maxOff: number; outOfBounds: number } }).__phoneInfo = () => ({

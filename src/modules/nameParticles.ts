@@ -1,5 +1,6 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
+import { makePostStack, makeFpsGuard } from './post';
 
 /* FLAVIUS VRANĂU — the dust-logo effect ported 1:1 from VULCAN GLASS
    (github.com/flaviusvranau1/vulcan-glass, buildDustLogo + dust update loop):
@@ -76,10 +77,17 @@ export function initNameParticles(): Promise<void> {
     const dustBaseCol = colors.slice();
 
     // --- scene
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; // applied by OutputPass in the composer chain
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x04080f);
     const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 40);
+    const post = makePostStack(renderer, scene, camera, section.clientWidth, section.clientHeight);
+    const fpsGuard = makeFpsGuard((level) => {
+      if (level === 1) post.setBloom(false);
+      else renderer.setPixelRatio(1);
+    });
 
     const dotTexture = (() => {
       const c = document.createElement('canvas');
@@ -118,6 +126,7 @@ export function initNameParticles(): Promise<void> {
       const w = section.clientWidth;
       const h = section.clientHeight;
       renderer.setSize(w, h, false);
+      post.setSize(w, h);
       camera.aspect = w / h;
       const fitW = LOGO_W / 0.84; // name spans ~84% of the viewport width
       const dist = fitW / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
@@ -222,7 +231,9 @@ export function initNameParticles(): Promise<void> {
       }
       dustGeo.attributes.position.needsUpdate = true;
       dustColAttr.needsUpdate = true;
-      renderer.render(scene, camera);
+      // CA breathes only with cursor motion — the igloo language
+      post.render(t, Math.min(pointerSpeed, 2.5) * 0.008);
+      fpsGuard(dt * 1000);
     });
 
     // QA hooks (§10)
@@ -230,5 +241,9 @@ export function initNameParticles(): Promise<void> {
       count: n,
       maxOff: maxOffNow,
     });
+    (window as unknown as { __nameRenderOnce: () => void }).__nameRenderOnce = () => {
+      post.render(performance.now() / 1000);
+      renderer.getContext().finish();
+    };
   });
 }
