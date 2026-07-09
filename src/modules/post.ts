@@ -15,6 +15,7 @@ export type PostStack = {
   render: (timeSec: number, caBoost?: number) => void;
   setSize: (w: number, h: number) => void;
   setBloom: (on: boolean) => void;
+  setPixelRatio: (dpr: number) => void;
 };
 
 export function makePostStack(
@@ -24,7 +25,7 @@ export function makePostStack(
   width: number,
   height: number
 ): PostStack {
-  const dpr = renderer.getPixelRatio();
+  let dpr = renderer.getPixelRatio();
   const target = new THREE.WebGLRenderTarget(width * dpr, height * dpr, {
     samples: 2, // MSAA 2x — the 4x difference is invisible, the cost is not
     type: THREE.HalfFloatType,
@@ -101,6 +102,13 @@ export function makePostStack(
     },
     setBloom(on: boolean) {
       bloom.enabled = on;
+    },
+    setPixelRatio(next: number) {
+      dpr = next;
+      renderer.setPixelRatio(next);
+      const size = renderer.getSize(new THREE.Vector2());
+      composer.setPixelRatio(next); // re-runs composer.setSize at the stored logical size
+      finalPass.uniforms.uRes.value.set(size.x * next, size.y * next);
     },
   };
 }

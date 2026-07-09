@@ -86,7 +86,7 @@ export function initNameParticles(): Promise<void> {
     const post = makePostStack(renderer, scene, camera, section.clientWidth, section.clientHeight);
     const fpsGuard = makeFpsGuard((level) => {
       if (level === 1) post.setBloom(false);
-      else renderer.setPixelRatio(1);
+      else post.setPixelRatio(1);
     });
 
     const dotTexture = (() => {

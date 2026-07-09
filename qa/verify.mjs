@@ -1,4 +1,4 @@
-/* V5 smoke: particle name, 3D phone corridor, desk lift — numeric checks + shots. */
+/* V7 smoke: particle name, 3D phone corridor, igloo brick rise — numeric checks + shots. */
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -57,23 +57,28 @@ await page.waitForTimeout(2200);
 const phoneAfter = await page.evaluate(`window.__phoneInfo().maxOff`);
 note('phone icons dodge, stay in frame, settle', phoneInfo && phoneInfo.maxOff > 0.12 && phoneInfo.outOfBounds === 0 && phoneAfter < 0.06, JSON.stringify(phoneInfo) + ` settle=${phoneAfter?.toFixed(3)}`);
 
-// --- 3. desk
-const deskTop = await page.evaluate(`document.getElementById('desk').offsetTop`);
-await page.evaluate(`window.__lenis.scrollTo(${deskTop}, { immediate: true })`);
-await page.waitForFunction(`window.__deskInfo !== undefined`, null, { timeout: 45000 });
-await page.waitForTimeout(3500); // drop-in intro
-await page.screenshot({ path: SHOTS + 'v5-desk.png' });
-const lp = await page.evaluate(`window.__deskScreenPos('classic_laptop')`);
-if (lp) {
-  await page.mouse.move(lp.x, lp.y);
-  await page.waitForTimeout(900);
+// --- 3. igloo
+const iglooTop = await page.evaluate(`document.getElementById('igloo').offsetTop`);
+await page.evaluate(`window.__lenis.scrollTo(${iglooTop}, { immediate: true })`);
+await page.waitForFunction(`window.__iglooInfo !== undefined`, null, { timeout: 45000 });
+await page.waitForTimeout(3000); // assembly intro settles
+await page.screenshot({ path: SHOTS + 'v7-igloo.png' });
+const ap = await page.evaluate(`window.__iglooScreenPos()`);
+await page.mouse.move(ap.x, ap.y);
+for (let i = 0; i < 8; i++) {
+  await page.mouse.move(ap.x + Math.cos(i * 0.9) * 42, ap.y + 30 + Math.sin(i * 0.9) * 30);
+  await page.waitForTimeout(60);
 }
-const lifted = await page.evaluate(`window.__deskInfo()['classic_laptop']`);
-await page.screenshot({ path: SHOTS + 'v5-desk-hover.png' });
-await page.mouse.move(1400, 880); // genuinely empty corner, far from every proxy
+const iglooHover = await page.evaluate(`window.__iglooInfo()`);
+await page.screenshot({ path: SHOTS + 'v7-igloo-hover.png' });
+await page.mouse.move(1400, 880); // genuinely empty corner, far from the dome
 await page.waitForTimeout(1800);
-const settled = await page.evaluate(`window.__deskInfo()['classic_laptop']`);
-note('desk laptop lifts on hover + settles', lifted > 0.05 && Math.abs(settled) < 0.03, `lift=${lifted} settle=${settled}`);
+const iglooSettle = await page.evaluate(`window.__iglooInfo().maxLift`);
+note(
+  'igloo bricks rise on hover + settle',
+  iglooHover.maxLift > 0.05 && iglooHover.hovered >= 2 && iglooSettle < 0.02,
+  `blocks=${iglooHover.blocks} lift=${iglooHover.maxLift.toFixed(3)} hovered=${iglooHover.hovered} settle=${iglooSettle.toFixed(4)}`
+);
 
 // --- 4. mountain scrub still works (moved down)
 const heroTop = await page.evaluate(`document.getElementById('hero').offsetTop`);

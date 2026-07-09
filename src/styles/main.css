@@ -310,9 +310,9 @@ body.has-cursor .cursor { display: flex; }
   color: var(--muted);
 }
 
-/* ---------------- 2 · Phone / 3 · Desk — interactive 3D stages ---------------- */
+/* ---------------- 2 · Phone / 3 · Igloo — interactive 3D stages ---------------- */
 .phone,
-.desk {
+.igloo {
   position: relative;
   height: 100vh;
   height: 100svh;
@@ -320,9 +320,9 @@ body.has-cursor .cursor { display: flex; }
   background: var(--bg);
 }
 .phone__canvas,
-.desk__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.igloo__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .phone__ui,
-.desk__ui {
+.igloo__ui {
   position: absolute;
   z-index: 2;
   left: var(--pad);
@@ -330,7 +330,11 @@ body.has-cursor .cursor { display: flex; }
   pointer-events: none;
 }
 .phone__hint,
-.desk__hint { margin-top: 10px; color: var(--muted); }
+.igloo__hint { margin-top: 10px; color: var(--muted); }
+/* the igloo is the HIGH-KEY chapter — light fog scene, dark ink on the overlay */
+.igloo { background: #989ea7; }
+.igloo__ui .eyebrow { color: #131b26; }
+.igloo__ui .igloo__hint { color: #3a4552; }
 
 /* ---------------- Manifesto ---------------- */
 .manifesto {
@@ -727,13 +731,13 @@ body.has-cursor .cursor { display: flex; }
   .intro__meta, .intro__hint { opacity: 1; }
   .intro__canvas { display: none; }
   .intro__fallback { display: flex; }
-  .phone, .desk { display: none; }
+  .phone, .igloo { display: none; }
 }
 
 /* ---------------- Mobile ---------------- */
 @media (max-width: 767px) {
   .site-head__status { display: none; }
-  .phone, .desk { display: none; }
+  .phone, .igloo { display: none; }
   .intro__canvas { display: none; }
   .intro__fallback { display: flex; }
   .intro__meta { opacity: 1; }

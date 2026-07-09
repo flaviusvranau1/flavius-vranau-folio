@@ -14,9 +14,6 @@ import { initSmoothScroll } from './modules/scroll';
 import { setPreloadProgress, finishPreloader } from './modules/preloader';
 import { initCursor } from './modules/cursor';
 import { initGrain } from './modules/grain';
-import { initNameParticles } from './modules/nameParticles';
-import { initPhone3d } from './modules/phone3d';
-import { initDesk3d } from './modules/desk3d';
 import { initHeroScrub } from './modules/heroScrub';
 import { initMomentSweep } from './modules/momentSweep';
 import { initDepthPortrait } from './modules/depthPortrait';
@@ -73,7 +70,14 @@ async function boot(): Promise<void> {
     return;
   }
 
-  // Desktop: the preloader tracks fonts + the particle-name build (fast, honest)
+  // Desktop: the 3D stages load as async chunks — mobile never parses three.js
+  const [{ initNameParticles }, { initPhone3d }, { initIgloo3d }] = await Promise.all([
+    import('./modules/nameParticles'),
+    import('./modules/phone3d'),
+    import('./modules/igloo3d'),
+  ]);
+
+  // the preloader tracks fonts + the particle-name build (fast, honest)
   setPreloadProgress(0.15);
   await document.fonts.ready;
   setPreloadProgress(0.55);
@@ -87,7 +91,7 @@ async function boot(): Promise<void> {
   );
 
   initPhone3d();
-  initDesk3d();
+  initIgloo3d();
   initHeroScrub('./frames', HERO_FRAMES_DESKTOP, true, throttle);
   initMomentSweep(true, './sweep', SWEEP_FRAMES_DESKTOP);
   initDepthPortrait();
