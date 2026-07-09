@@ -2,7 +2,7 @@ import gsap from 'gsap';
 import * as THREE from 'three';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { makePostStack } from './post';
+import { makePostStack, notePerfFrame } from './post';
 import { registerStage, type StageMode } from './stage';
 
 /* THE ICE DOME (igloo.inc hero interaction — PLAYBOOK §2/§3/§8):
@@ -130,15 +130,18 @@ export function initIgloo3d(): void {
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(buildEnvScene(), 0.04).texture;
     scene.environmentIntensity = 0.4;
-    // the real winter sky (Poly Haven horn-koppe_snow) swaps in when it arrives
-    new RGBELoader()
-      .loadAsync('./textures/winter_1k.hdr')
-      .then((hdr) => {
-        scene.environment = pmrem.fromEquirectangular(hdr).texture;
-        scene.environmentIntensity = 0.5;
-        hdr.dispose();
-      })
-      .catch(() => undefined);
+    // the real winter sky (Poly Haven horn-koppe_snow) swaps in LATE — HDR parse
+    // is main-thread heavy; keep it out of the cold-boot storm the user scrolls into
+    setTimeout(() => {
+      new RGBELoader()
+        .loadAsync('./textures/winter_1k.hdr')
+        .then((hdr) => {
+          scene.environment = pmrem.fromEquirectangular(hdr).texture;
+          scene.environmentIntensity = 0.5;
+          hdr.dispose();
+        })
+        .catch(() => undefined);
+    }, 5000);
 
     // low winter sun with REAL soft shadows — the scene is 4 draw calls, the
     // shadow pass is nearly free, and brick-on-brick occlusion sells the realism
@@ -305,13 +308,28 @@ export function initIgloo3d(): void {
       baseCol[i * 3 + 2] = cBase.b * j;
     }
 
-    // photographic packed-snow surface (Poly Haven snow_02 @1k) — loads async, swaps in
-    const texLoader = new THREE.TextureLoader();
-    const snowDiff = texLoader.load('./textures/snow_diff.jpg');
-    snowDiff.colorSpace = THREE.SRGBColorSpace;
-    const snowNor = texLoader.load('./textures/snow_nor.jpg');
-    const snowRough = texLoader.load('./textures/snow_rough.jpg');
-    for (const tx of [snowDiff, snowNor, snowRough]) tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+    // photographic packed-snow surface (Poly Haven snow_02 @1k), decoded OFF the
+    // main thread via ImageBitmapLoader — 3 JPG decodes on a throttled CPU were
+    // part of the cold-scroll jank. Brick + ground texture pairs share bitmaps.
+    const bmpLoader = new THREE.ImageBitmapLoader().setOptions({ imageOrientation: 'none' });
+    const makeTexPair = (url: string, srgb: boolean): [THREE.Texture, THREE.Texture] => {
+      const pair: [THREE.Texture, THREE.Texture] = [new THREE.Texture(), new THREE.Texture()];
+      for (const t of pair) {
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.flipY = false; // ImageBitmap path — irrelevant on noise textures
+        if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+      }
+      bmpLoader.load(url, (bmp) => {
+        for (const t of pair) {
+          t.image = bmp;
+          t.needsUpdate = true;
+        }
+      });
+      return pair;
+    };
+    const [snowDiff, gDiff] = makeTexPair('./textures/snow_diff.jpg', true);
+    const [snowNor, gNor] = makeTexPair('./textures/snow_nor.jpg', false);
+    const [snowRough, gRough] = makeTexPair('./textures/snow_rough.jpg', false);
 
     // snow caps: faces pointing up catch fresh powder (view-space up passed per frame)
     const upView = { value: new THREE.Vector3(0, 1, 0) };
@@ -393,13 +411,7 @@ export function initIgloo3d(): void {
     scene.add(shell);
 
     // ground — real snow, catching the sun's shadows; fog dissolves it into the sky
-    const gDiff = snowDiff.clone();
-    const gNor = snowNor.clone();
-    const gRough = snowRough.clone();
-    for (const tx of [gDiff, gNor, gRough]) {
-      tx.repeat.set(18, 18);
-      tx.needsUpdate = true;
-    }
+    for (const tx of [gDiff, gNor, gRough]) tx.repeat.set(18, 18);
     const ground = new THREE.Mesh(
       new THREE.CircleGeometry(60, 48),
       new THREE.MeshStandardMaterial({
@@ -833,8 +845,10 @@ export function initIgloo3d(): void {
       }
       snowGeo.attributes.position.needsUpdate = true;
 
-      if (mode === 'full') post.render(t, Math.min(pointerSpeed, 2.5) * 0.006);
-      else post.renderPlain();
+      if (mode === 'full') {
+        post.render(t, Math.min(pointerSpeed, 2.5) * 0.006);
+        notePerfFrame(dt * 1000); // feed the adaptive ladder while we're the dominant scene
+      } else post.renderPlain();
     });
 
     // ---------- QA hooks (§10) ----------
