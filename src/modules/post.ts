@@ -63,8 +63,10 @@ function setPerfLevel(next: number): void {
    Average below ~42fps steps DOWN one level. Recovery is slow and cautious:
    sustained >55fps steps back UP one level, and the required good time
    DOUBLES after every step-down (5s → 10s → 20s cap) so a borderline GPU
-   cannot flap between levels mid-scroll. Spikes >250ms (shader compile,
-   hidden tab) are ignored. Only the scene that actually rendered this frame
+   cannot flap between levels mid-scroll. Long frames are CLAMPED to 250ms,
+   not discarded — a total collapse (every frame slow, e.g. 120 WebP decodes
+   landing at once) must still trip the ladder; averaging absorbs genuine
+   one-off spikes on its own. Only the scene that actually rendered this frame
    should feed it — the stage coordinator guarantees one scene at a time. */
 let acc = 0;
 let count = 0;
@@ -72,7 +74,7 @@ let goodMs = 0;
 let goodNeed = 5000;
 
 export function notePerfFrame(dtMs: number): void {
-  if (dtMs > 250) return;
+  if (dtMs > 250) dtMs = 250;
   if (dtMs <= 1000 / 55) {
     goodMs += dtMs;
     if (goodMs > goodNeed && perfLevel > 0) {

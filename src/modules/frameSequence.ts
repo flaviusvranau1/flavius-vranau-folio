@@ -16,22 +16,31 @@ export class FrameSequence {
   load(onProgress?: (loaded: number, total: number) => void, throttleMs = 0): Promise<void> {
     return new Promise((resolve) => {
       if (this.total === 0) return resolve();
+      // pooled loading: a handful of images in flight at a time — 120 parallel
+      // downloads+decodes stampede a throttled CPU into single-digit fps
+      const POOL = 4;
+      let next = 0;
       const done = () => {
         this.loaded++;
         onProgress?.(this.loaded, this.total);
         if (this.loaded === this.total) resolve();
+        else pump();
       };
-      const start = (i: number) => {
+      const pump = () => {
+        if (next >= this.total) return;
+        const i = next++;
         const img = new Image();
         img.decoding = 'async';
-        img.onload = () => (throttleMs ? setTimeout(done, throttleMs) : done());
+        img.onload = () => {
+          // decode off the render path NOW, paced by the pool
+          const fin = () => (throttleMs ? setTimeout(done, throttleMs) : done());
+          img.decode ? img.decode().then(fin, fin) : fin();
+        };
         img.onerror = done;
         img.src = this.paths[i];
         this.images[i] = img;
       };
-      this.paths.forEach((_, i) =>
-        throttleMs ? setTimeout(() => start(i), i * throttleMs) : start(i)
-      );
+      for (let k = 0; k < Math.min(POOL, this.total); k++) pump();
     });
   }
 
